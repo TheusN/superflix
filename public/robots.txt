@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://superflix.vercel.app/sitemap.xml
