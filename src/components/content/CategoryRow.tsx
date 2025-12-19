@@ -66,7 +66,7 @@ export function CategoryRow({
     return null;
   }
 
-  const cardWidth = variant === 'backdrop' ? 'w-[280px] md:w-[340px]' : 'w-[150px] md:w-[180px]';
+  const cardWidth = variant === 'backdrop' ? 'w-[260px] md:w-[320px] lg:w-[380px]' : 'w-[140px] md:w-[160px] lg:w-[180px]';
 
   return (
     <section
@@ -75,7 +75,7 @@ export function CategoryRow({
       onMouseLeave={() => setIsHovering(false)}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 px-6 md:px-12">
+      <div className="flex items-center justify-between mb-4 px-8 md:px-16 lg:px-20">
         {href ? (
           <Link
             href={href}
@@ -124,7 +124,7 @@ export function CategoryRow({
           onScroll={handleScroll}
           className={cn(
             'flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide',
-            'px-6 md:px-12 pb-4',
+            'px-8 md:px-16 lg:px-20 pb-4',
             'scroll-smooth'
           )}
         >
@@ -199,14 +199,14 @@ function SkeletonCard({ variant = 'poster' }: { variant?: 'poster' | 'backdrop' 
 
 // Skeleton row for loading state
 export function SkeletonRow({ variant = 'poster' }: { variant?: 'poster' | 'backdrop' }) {
-  const cardWidth = variant === 'backdrop' ? 'w-[280px] md:w-[340px]' : 'w-[150px] md:w-[180px]';
+  const cardWidth = variant === 'backdrop' ? 'w-[260px] md:w-[320px] lg:w-[380px]' : 'w-[140px] md:w-[160px] lg:w-[180px]';
 
   return (
     <section className="py-6 md:py-8">
-      <div className="px-6 md:px-12 mb-4">
+      <div className="px-8 md:px-16 lg:px-20 mb-4">
         <div className="h-6 w-40 rounded bg-[var(--bg-tertiary)]" />
       </div>
-      <div className="flex gap-3 md:gap-4 px-6 md:px-12 overflow-hidden">
+      <div className="flex gap-3 md:gap-4 px-8 md:px-16 lg:px-20 overflow-hidden">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className={cn('flex-shrink-0', cardWidth)}>
             <SkeletonCard variant={variant} />

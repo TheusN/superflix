@@ -113,7 +113,7 @@ export function HeroSection({
 
       {/* Content */}
       <div className="relative h-full flex items-end">
-        <div className="w-full max-w-[1800px] mx-auto px-6 md:px-12 pb-24 md:pb-32">
+        <div className="w-full max-w-[1800px] mx-auto px-8 md:px-16 lg:px-20 pb-28 md:pb-36">
           <div
             className={cn(
               'max-w-2xl transition-all duration-700 stagger-children',
@@ -182,7 +182,7 @@ export function HeroSection({
 
           {/* Slide Indicators */}
           {heroItems.length > 1 && (
-            <div className="absolute bottom-8 right-6 md:right-12 flex items-center gap-2">
+            <div className="absolute bottom-8 right-8 md:right-16 lg:right-20 flex items-center gap-2">
               {heroItems.map((_, index) => (
                 <button
                   key={index}
@@ -221,7 +221,7 @@ export function SkeletonHero() {
     <div className="relative h-[85vh] min-h-[600px] bg-[var(--bg-secondary)]">
       <div className="absolute inset-0 skeleton" />
       <div className="hero-gradient-bottom absolute inset-0" />
-      <div className="absolute bottom-24 left-6 md:left-12 space-y-4">
+      <div className="absolute bottom-28 left-8 md:left-16 lg:left-20 space-y-4">
         <div className="h-4 w-24 rounded bg-white/10" />
         <div className="h-12 w-80 rounded bg-white/10" />
         <div className="h-4 w-64 rounded bg-white/10" />
