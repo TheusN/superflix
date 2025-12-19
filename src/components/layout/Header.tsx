@@ -4,15 +4,15 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
 import { cn } from '@/lib/utils';
+import { Search, User, LogOut, Settings, ChevronDown, Trash2 } from 'lucide-react';
+import { ClearCacheButton } from '@/components/ui/ClearCacheButton';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -27,19 +27,17 @@ export function Header() {
     { href: '/?category=movie', label: 'Filmes', active: category === 'movie' },
     { href: '/?category=serie', label: 'Séries', active: category === 'serie' },
     { href: '/?category=anime', label: 'Animes', active: category === 'anime' },
-    { href: '/tv', label: 'TV', active: pathname === '/tv' },
+    { href: '/tv', label: 'TV ao Vivo', active: pathname === '/tv' },
   ];
 
-  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
+      setScrolled(window.scrollY > 20);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close menus on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -50,10 +48,22 @@ export function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Focus search input when opened
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
       searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setSearchQuery('');
+      }
+    };
+    if (searchOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
     }
   }, [searchOpen]);
 
@@ -67,162 +77,196 @@ export function Header() {
   };
 
   return (
-    <header
-      className={cn(
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-        scrolled
-          ? 'bg-[var(--bg-primary)]/95 backdrop-blur-md shadow-lg'
-          : 'bg-gradient-to-b from-black/80 to-transparent'
-      )}
-    >
-      <div className="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-2xl font-bold text-[var(--accent-primary)]">SUPERFLIX</span>
-        </Link>
+    <>
+      <header
+        className={cn(
+          'fixed top-0 left-0 right-0 z-50 transition-all duration-500',
+          scrolled
+            ? 'glass'
+            : 'bg-gradient-to-b from-black/80 via-black/40 to-transparent'
+        )}
+      >
+        <div className="max-w-[1800px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between">
+          {/* Logo */}
+          <Link
+            href="/"
+            className="flex items-center flex-shrink-0"
+          >
+            <span className="text-xl md:text-2xl font-semibold tracking-tight text-white">
+              superflix
+            </span>
+          </Link>
 
-        {/* Navigation - Desktop */}
-        <nav className="hidden md:flex items-center gap-1 ml-8">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
-                link.active
-                  ? 'text-[var(--accent-primary)] bg-[var(--accent-primary)]/10'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          {/* Search */}
-          <form onSubmit={handleSearch} className="relative">
-            <div
-              className={cn(
-                'flex items-center transition-all duration-300 overflow-hidden',
-                searchOpen ? 'w-64 bg-[var(--bg-secondary)] rounded-full' : 'w-10'
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => setSearchOpen(!searchOpen)}
-                className="w-10 h-10 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex-shrink-0"
+          {/* Navigation - Desktop */}
+          <nav className="hidden lg:flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  'nav-link',
+                  link.active && 'active'
+                )}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className={cn(
+                'w-11 h-11 flex items-center justify-center rounded-full transition-all',
+                'text-white/70 hover:text-white hover:bg-white/10'
+              )}
+              aria-label="Buscar"
+            >
+              <Search size={20} strokeWidth={1.5} />
+            </button>
+
+            {/* Clear Cache (for non-logged users) */}
+            {!user && (
+              <ClearCacheButton variant="button" className="hidden sm:flex" />
+            )}
+
+            {/* User Menu */}
+            {user ? (
+              <div ref={userMenuRef} className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className={cn(
+                    'flex items-center gap-3 pl-3 pr-4 py-2 rounded-full transition-all',
+                    'hover:bg-white/10 text-white'
+                  )}
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <span className="text-sm font-medium text-white">
+                      {(user.name || user.email)[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="hidden md:block text-sm font-medium max-w-[120px] truncate">
+                    {user.name || user.email.split('@')[0]}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={1.5}
+                    className={cn(
+                      'hidden md:block transition-transform duration-300',
+                      userMenuOpen && 'rotate-180'
+                    )}
+                  />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-3 w-64 py-3 glass rounded-2xl shadow-2xl animate-fade-in-scale origin-top-right">
+                    {/* User Info */}
+                    <div className="px-5 py-3 border-b border-white/10">
+                      <p className="text-base font-medium text-white truncate">
+                        {user.name}
+                      </p>
+                      <p className="text-sm text-[var(--text-secondary)] truncate mt-1">
+                        {user.email}
+                      </p>
+                    </div>
+
+                    {/* Menu Items */}
+                    <div className="py-2">
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-4 px-5 py-3 text-sm text-[var(--text-secondary)] hover:text-white hover:bg-white/5 transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <User size={18} strokeWidth={1.5} />
+                        Meu Perfil
+                      </Link>
+
+                      {user.isAdmin && (
+                        <Link
+                          href="/admin"
+                          className="flex items-center gap-4 px-5 py-3 text-sm text-[var(--text-secondary)] hover:text-white hover:bg-white/5 transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Settings size={18} strokeWidth={1.5} />
+                          Administração
+                        </Link>
+                      )}
+                    </div>
+
+                    {/* Utilities */}
+                    <div className="border-t border-white/10 pt-2 mt-1">
+                      <ClearCacheButton variant="menu-item" />
+                    </div>
+
+                    {/* Logout */}
+                    <div className="border-t border-white/10 pt-2 mt-1">
+                      <button
+                        onClick={() => {
+                          logout();
+                          setUserMenuOpen(false);
+                          router.push('/');
+                        }}
+                        className="w-full flex items-center gap-4 px-5 py-3 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors"
+                      >
+                        <LogOut size={18} strokeWidth={1.5} />
+                        Sair
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="px-6 py-2.5 text-sm font-medium rounded-full bg-white text-black hover:bg-white/90 transition-all"
+              >
+                Entrar
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Search Overlay */}
+      {searchOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl animate-fade-in"
+          onClick={() => setSearchOpen(false)}
+        >
+          <div
+            className="max-w-2xl mx-auto pt-32 px-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form onSubmit={handleSearch} className="relative">
+              <Search
+                size={24}
+                strokeWidth={1.5}
+                className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
+              />
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Buscar filmes, séries..."
+                placeholder="Buscar filmes, séries, animes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={cn(
-                  'bg-transparent border-none outline-none text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]',
-                  searchOpen ? 'w-full pr-4' : 'w-0'
+                  'w-full pl-16 pr-6 py-5 text-lg',
+                  'bg-[var(--bg-elevated)] rounded-2xl',
+                  'text-white placeholder-[var(--text-tertiary)]',
+                  'border border-[var(--border-color)]',
+                  'focus:outline-none focus:border-white/30',
+                  'transition-colors'
                 )}
               />
-            </div>
-          </form>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="w-10 h-10 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-full hover:bg-white/10 transition-colors"
-            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-          >
-            {theme === 'dark' ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            )}
-          </button>
-
-          {/* User Menu */}
-          {user ? (
-            <div ref={userMenuRef} className="relative">
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span className="text-sm hidden sm:inline max-w-[100px] truncate">
-                  {user.name || user.email.split('@')[0]}
-                </span>
-                <svg className={cn('w-4 h-4 transition-transform', userMenuOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 py-2 bg-[var(--bg-secondary)] rounded-xl shadow-xl border border-[var(--border-color)] animate-fade-in">
-                  <div className="px-4 py-2 border-b border-[var(--border-color)]">
-                    <p className="text-sm font-medium truncate">{user.name}</p>
-                    <p className="text-xs text-[var(--text-secondary)] truncate">{user.email}</p>
-                  </div>
-                  <Link
-                    href="/profile"
-                    className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-white/5 transition-colors"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Meu Perfil
-                  </Link>
-                  {user.isAdmin && (
-                    <Link
-                      href="/admin"
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-[var(--accent-primary)] hover:bg-white/5 transition-colors"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Admin
-                    </Link>
-                  )}
-                  <hr className="my-2 border-[var(--border-color)]" />
-                  <button
-                    onClick={() => {
-                      logout();
-                      setUserMenuOpen(false);
-                      router.push('/');
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-white/5 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Sair
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Link
-              href="/login"
-              className="px-4 py-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium rounded-full transition-colors"
-            >
-              Entrar
-            </Link>
-          )}
+            </form>
+            <p className="text-center text-sm text-[var(--text-tertiary)] mt-6">
+              Pressione <kbd className="px-2 py-1 bg-[var(--bg-tertiary)] rounded-lg text-xs font-medium">ESC</kbd> para fechar
+            </p>
+          </div>
         </div>
-      </div>
-    </header>
+      )}
+    </>
   );
 }

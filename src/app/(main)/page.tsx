@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { tmdb } from '@/services/tmdb';
-import { HeroSection } from '@/components/content/HeroSection';
-import { CategoryRow } from '@/components/content/CategoryRow';
-import { SkeletonHero, SkeletonRow } from '@/components/ui/Skeleton';
+import { HeroSection, SkeletonHero } from '@/components/content/HeroSection';
+import { CategoryRow, SkeletonRow } from '@/components/content/CategoryRow';
 import type { Content } from '@/types/content';
 
 interface HomeData {
@@ -20,7 +19,6 @@ interface HomeData {
 export default function HomePage() {
   const [data, setData] = useState<HomeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [heroContent, setHeroContent] = useState<Content | null>(null);
 
   useEffect(() => {
     loadHomeData();
@@ -57,12 +55,6 @@ export default function HomePage() {
       };
 
       setData(homeData);
-
-      // Set random trending content as hero
-      if (homeData.trending.length > 0) {
-        const randomIndex = Math.floor(Math.random() * Math.min(5, homeData.trending.length));
-        setHeroContent(homeData.trending[randomIndex]);
-      }
     } catch (error) {
       console.error('Error loading home data:', error);
     } finally {
@@ -72,9 +64,10 @@ export default function HomePage() {
 
   if (isLoading) {
     return (
-      <div>
+      <div className="min-h-screen">
         <SkeletonHero />
-        <div className="space-y-8 py-8">
+        <div className="relative z-10 -mt-24 space-y-2 pb-24">
+          <SkeletonRow />
           <SkeletonRow />
           <SkeletonRow />
           <SkeletonRow />
@@ -84,17 +77,23 @@ export default function HomePage() {
   }
 
   return (
-    <div>
-      {/* Hero Section */}
-      <HeroSection content={heroContent} />
+    <div className="min-h-screen">
+      {/* Hero Section - rotates through top trending */}
+      <HeroSection
+        items={data?.trending.slice(0, 5)}
+        autoRotate
+        rotateInterval={8000}
+      />
 
-      {/* Content Rows */}
-      <div className="-mt-32 relative z-10 space-y-2">
+      {/* Content Rows - overlap hero slightly */}
+      <div className="relative z-10 -mt-24 space-y-2 pb-24">
+        {/* Trending with backdrop cards */}
         <CategoryRow
           title="Em Alta"
           items={data?.trending || []}
           showType
           href="/trending"
+          variant="backdrop"
         />
 
         <CategoryRow
@@ -128,6 +127,7 @@ export default function HomePage() {
         <CategoryRow
           title="Em Breve"
           items={data?.upcoming || []}
+          variant="backdrop"
         />
       </div>
     </div>

@@ -1,9 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ContentCard } from './ContentCard';
-import { SkeletonCard } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Content } from '@/types/content';
@@ -16,6 +15,7 @@ interface CategoryRowProps {
   href?: string;
   onFavorite?: (content: Content) => void;
   favorites?: number[];
+  variant?: 'poster' | 'backdrop';
 }
 
 export function CategoryRow({
@@ -26,16 +26,18 @@ export function CategoryRow({
   href,
   onFavorite,
   favorites = [],
+  variant = 'poster',
 }: CategoryRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
+  const [isHovering, setIsHovering] = useState(false);
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
 
     const container = scrollRef.current;
-    const scrollAmount = container.clientWidth * 0.8;
+    const scrollAmount = container.clientWidth * 0.75;
 
     container.scrollBy({
       left: direction === 'left' ? -scrollAmount : scrollAmount,
@@ -47,30 +49,49 @@ export function CategoryRow({
     if (!scrollRef.current) return;
 
     const container = scrollRef.current;
-    setShowLeftArrow(container.scrollLeft > 0);
+    setShowLeftArrow(container.scrollLeft > 20);
     setShowRightArrow(
-      container.scrollLeft < container.scrollWidth - container.clientWidth - 10
+      container.scrollLeft < container.scrollWidth - container.clientWidth - 20
     );
   };
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (container) {
+      handleScroll();
+    }
+  }, [items]);
 
   if (!isLoading && (!items || items.length === 0)) {
     return null;
   }
 
+  const cardWidth = variant === 'backdrop' ? 'w-[280px] md:w-[340px]' : 'w-[150px] md:w-[180px]';
+
   return (
-    <section className="py-6">
+    <section
+      className="py-6 md:py-8"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 px-4 md:px-8">
+      <div className="flex items-center justify-between mb-4 px-6 md:px-12">
         {href ? (
           <Link
             href={href}
-            className="text-lg md:text-xl font-semibold text-[var(--text-primary)] hover:text-[var(--accent-primary)] transition-colors flex items-center gap-2"
+            className="group flex items-center gap-2"
           >
-            {title}
-            <ChevronRight size={20} className="opacity-0 group-hover:opacity-100" />
+            <h2 className="text-title text-[var(--text-primary)] group-hover:text-[var(--text-secondary)] transition-colors">
+              {title}
+            </h2>
+            <ChevronRight
+              size={18}
+              strokeWidth={1.5}
+              className="text-[var(--text-tertiary)] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all"
+            />
           </Link>
         ) : (
-          <h2 className="text-lg md:text-xl font-semibold text-[var(--text-primary)]">
+          <h2 className="text-title text-[var(--text-primary)]">
             {title}
           </h2>
         )}
@@ -82,40 +103,60 @@ export function CategoryRow({
         <button
           onClick={() => scroll('left')}
           className={cn(
-            'absolute left-0 top-0 bottom-0 z-10 w-12 flex items-center justify-center',
-            'bg-gradient-to-r from-[var(--bg-primary)] to-transparent',
-            'opacity-0 group-hover:opacity-100 transition-opacity',
-            'hover:from-[var(--bg-primary)]/90',
-            !showLeftArrow && 'hidden'
+            'absolute left-0 top-0 bottom-0 z-20 w-16 md:w-20',
+            'flex items-center justify-start pl-2',
+            'bg-gradient-to-r from-[var(--bg-primary)] via-[var(--bg-primary)]/80 to-transparent',
+            'transition-all duration-300',
+            showLeftArrow && isHovering
+              ? 'opacity-100'
+              : 'opacity-0 pointer-events-none'
           )}
-          aria-label="Scroll left"
+          aria-label="Rolar para esquerda"
         >
-          <ChevronLeft size={32} className="text-white" />
+          <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-colors">
+            <ChevronLeft size={24} strokeWidth={1.5} className="text-white" />
+          </div>
         </button>
 
         {/* Items Container */}
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex gap-3 overflow-x-auto scrollbar-hide px-4 md:px-8 pb-2"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className={cn(
+            'flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide',
+            'px-6 md:px-12 pb-4',
+            'scroll-smooth'
+          )}
         >
           {isLoading
             ? Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-[140px] md:w-[180px]">
-                  <SkeletonCard />
+                <div
+                  key={i}
+                  className={cn(
+                    'flex-shrink-0',
+                    cardWidth
+                  )}
+                >
+                  <SkeletonCard variant={variant} />
                 </div>
               ))
-            : items.map((item) => (
+            : items.map((item, index) => (
                 <div
                   key={`${item.media_type || 'content'}-${item.id}`}
-                  className="flex-shrink-0 w-[140px] md:w-[180px]"
+                  className={cn(
+                    'flex-shrink-0',
+                    cardWidth
+                  )}
+                  style={{
+                    animationDelay: `${index * 50}ms`,
+                  }}
                 >
                   <ContentCard
                     content={item}
                     showType={showType}
                     onFavorite={onFavorite ? () => onFavorite(item) : undefined}
                     isFavorite={favorites.includes(item.id)}
+                    variant={variant}
                   />
                 </div>
               ))}
@@ -125,16 +166,52 @@ export function CategoryRow({
         <button
           onClick={() => scroll('right')}
           className={cn(
-            'absolute right-0 top-0 bottom-0 z-10 w-12 flex items-center justify-center',
-            'bg-gradient-to-l from-[var(--bg-primary)] to-transparent',
-            'opacity-0 group-hover:opacity-100 transition-opacity',
-            'hover:from-[var(--bg-primary)]/90',
-            !showRightArrow && 'hidden'
+            'absolute right-0 top-0 bottom-0 z-20 w-16 md:w-20',
+            'flex items-center justify-end pr-2',
+            'bg-gradient-to-l from-[var(--bg-primary)] via-[var(--bg-primary)]/80 to-transparent',
+            'transition-all duration-300',
+            showRightArrow && isHovering
+              ? 'opacity-100'
+              : 'opacity-0 pointer-events-none'
           )}
-          aria-label="Scroll right"
+          aria-label="Rolar para direita"
         >
-          <ChevronRight size={32} className="text-white" />
+          <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-colors">
+            <ChevronRight size={24} strokeWidth={1.5} className="text-white" />
+          </div>
         </button>
+      </div>
+    </section>
+  );
+}
+
+// Skeleton card
+function SkeletonCard({ variant = 'poster' }: { variant?: 'poster' | 'backdrop' }) {
+  return (
+    <div
+      className={cn(
+        'rounded-lg overflow-hidden skeleton',
+        variant === 'backdrop' ? 'aspect-video' : 'aspect-[2/3]'
+      )}
+    />
+  );
+}
+
+// Skeleton row for loading state
+export function SkeletonRow({ variant = 'poster' }: { variant?: 'poster' | 'backdrop' }) {
+  const cardWidth = variant === 'backdrop' ? 'w-[280px] md:w-[340px]' : 'w-[150px] md:w-[180px]';
+
+  return (
+    <section className="py-6 md:py-8">
+      <div className="px-6 md:px-12 mb-4">
+        <div className="h-6 w-40 rounded bg-[var(--bg-tertiary)]" />
+      </div>
+      <div className="flex gap-3 md:gap-4 px-6 md:px-12 overflow-hidden">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className={cn('flex-shrink-0', cardWidth)}>
+            <SkeletonCard variant={variant} />
+          </div>
+        ))}
       </div>
     </section>
   );

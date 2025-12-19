@@ -1,143 +1,236 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { tmdb } from '@/services/tmdb';
 import { cn } from '@/lib/utils';
-import { Play, Info, Star, Volume2, VolumeX } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import type { Content, ContentDetails } from '@/types/content';
+import { Play, Plus, Volume2, VolumeX } from 'lucide-react';
+import type { Content, ContentDetails, Genre } from '@/types/content';
 
 interface HeroSectionProps {
   content?: Content | ContentDetails | null;
+  items?: Content[];
   isLoading?: boolean;
-  autoPlay?: boolean;
-  showTrailer?: boolean;
+  autoRotate?: boolean;
+  rotateInterval?: number;
 }
 
 export function HeroSection({
   content,
+  items,
   isLoading = false,
-  autoPlay = false,
-  showTrailer = false,
+  autoRotate = true,
+  rotateInterval = 8000,
 }: HeroSectionProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [showVideo, setShowVideo] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (showTrailer && content && 'videos' in content && content.videos?.results) {
-      const trailer = content.videos.results.find(
-        (v) => v.type === 'Trailer' && v.site === 'YouTube'
-      );
-      if (trailer) {
-        setTrailerKey(trailer.key);
-      }
-    }
-  }, [content, showTrailer]);
+  // Use items array or single content
+  const heroItems = items?.slice(0, 5) || (content ? [content] : []);
+  const currentContent = heroItems[currentIndex];
 
-  if (isLoading || !content) {
+  // Auto-rotate hero items
+  useEffect(() => {
+    if (!autoRotate || heroItems.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % heroItems.length);
+        setIsTransitioning(false);
+      }, 500);
+    }, rotateInterval);
+
+    return () => clearInterval(timer);
+  }, [autoRotate, heroItems.length, rotateInterval]);
+
+  // Reset video state on content change
+  useEffect(() => {
+    setShowVideo(false);
+    setTrailerKey(null);
+  }, [currentIndex]);
+
+  const goToSlide = useCallback((index: number) => {
+    if (index === currentIndex) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex(index);
+      setIsTransitioning(false);
+    }, 500);
+  }, [currentIndex]);
+
+  if (isLoading || !currentContent) {
     return (
-      <div className="relative h-[70vh] min-h-[500px] bg-[var(--bg-secondary)] animate-pulse">
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
+      <div className="relative h-[85vh] min-h-[600px] bg-[var(--bg-secondary)]">
+        <div className="absolute inset-0 skeleton" />
+        <div className="hero-gradient-bottom absolute inset-0" />
       </div>
     );
   }
 
-  const title = content.title || content.name || 'Sem título';
-  const mediaType = content.media_type || (content.first_air_date ? 'tv' : 'movie');
-  const backdropUrl = content.backdrop_path
-    ? tmdb.getImageUrl(content.backdrop_path, 'original')
+  const title = currentContent.title || currentContent.name || 'Sem título';
+  const mediaType = currentContent.media_type || (currentContent.first_air_date ? 'tv' : 'movie');
+  const backdropUrl = currentContent.backdrop_path
+    ? tmdb.getImageUrl(currentContent.backdrop_path, 'original')
     : null;
-  const rating = content.vote_average ? content.vote_average.toFixed(1) : null;
-  const releaseDate = content.release_date || content.first_air_date;
+  const releaseDate = currentContent.release_date || currentContent.first_air_date;
   const year = releaseDate ? new Date(releaseDate).getFullYear() : null;
-  const overview = content.overview || '';
-  const genres = 'genres' in content ? content.genres : [];
+  const overview = currentContent.overview || '';
+  const genres: Genre[] = 'genres' in currentContent && Array.isArray(currentContent.genres)
+    ? currentContent.genres
+    : [];
+  const rating = currentContent.vote_average ? currentContent.vote_average.toFixed(1) : null;
 
-  const href = `/watch/${mediaType}/${content.id}`;
+  const href = `/watch/${mediaType}/${currentContent.id}`;
 
   return (
-    <section className="relative h-[70vh] min-h-[500px] overflow-hidden">
-      {/* Background Image/Video */}
-      <div className="absolute inset-0">
-        {showTrailer && trailerKey && autoPlay ? (
-          <div className="relative w-full h-full">
-            <iframe
-              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&loop=1&playlist=${trailerKey}&controls=0&showinfo=0&rel=0&modestbranding=1`}
-              className="absolute inset-0 w-full h-full scale-150"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            />
-            <button
-              onClick={() => setMuted(!muted)}
-              className="absolute bottom-24 right-8 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
-            >
-              {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-            </button>
-          </div>
-        ) : backdropUrl ? (
+    <section className="relative h-[85vh] min-h-[600px] overflow-hidden">
+      {/* Background Image */}
+      <div
+        className={cn(
+          'absolute inset-0 transition-opacity duration-700',
+          isTransitioning ? 'opacity-0' : 'opacity-100'
+        )}
+      >
+        {backdropUrl ? (
           <img
             src={backdropUrl}
             alt={title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover object-top animate-hero-reveal"
           />
         ) : (
-          <div className="w-full h-full bg-[var(--bg-secondary)]" />
+          <div className="w-full h-full bg-gradient-to-br from-[var(--bg-secondary)] to-[var(--bg-primary)]" />
         )}
-
-        {/* Gradient Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-primary)] via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)] via-[var(--bg-primary)]/20 to-transparent" />
       </div>
+
+      {/* Gradient Overlays */}
+      <div className="absolute inset-0 hero-gradient-bottom" />
+      <div className="absolute inset-0 hero-gradient-left opacity-80" />
+      <div className="absolute inset-0 hero-vignette" />
 
       {/* Content */}
       <div className="relative h-full flex items-end">
-        <div className="container mx-auto px-4 pb-16 md:pb-24">
-          <div className="max-w-2xl space-y-4">
+        <div className="w-full max-w-[1800px] mx-auto px-6 md:px-12 pb-24 md:pb-32">
+          <div
+            className={cn(
+              'max-w-2xl transition-all duration-700 stagger-children',
+              isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+            )}
+          >
+            {/* Category Tag */}
+            <div className="mb-4">
+              <span className="text-overline">
+                {mediaType === 'movie' ? 'Filme' : mediaType === 'tv' ? 'Série' : 'Anime'}
+                {year && ` • ${year}`}
+              </span>
+            </div>
+
             {/* Title */}
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white drop-shadow-lg">
+            <h1 className="text-display text-white mb-4 drop-shadow-2xl">
               {title}
             </h1>
 
             {/* Metadata */}
-            <div className="flex flex-wrap items-center gap-3 text-sm md:text-base text-gray-300">
+            <div className="flex flex-wrap items-center gap-4 mb-5">
               {rating && (
-                <span className="flex items-center gap-1">
-                  <Star size={16} className="text-yellow-400" fill="currentColor" />
-                  <span className="font-semibold">{rating}</span>
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                    <span className="text-sm font-medium text-white">{rating}</span>
+                  </div>
+                  <span className="text-sm text-[var(--text-secondary)]">
+                    Avaliação
+                  </span>
+                </div>
               )}
-              {year && <span>{year}</span>}
               {genres && genres.length > 0 && (
-                <span className="hidden sm:inline">
-                  {genres.slice(0, 3).map((g) => g.name).join(' • ')}
-                </span>
+                <div className="hidden sm:flex items-center gap-2">
+                  {genres.slice(0, 3).map((g, i) => (
+                    <span
+                      key={g.id}
+                      className="text-sm text-[var(--text-secondary)]"
+                    >
+                      {g.name}
+                      {i < Math.min(genres.length, 3) - 1 && (
+                        <span className="ml-2 text-[var(--text-tertiary)]">•</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
 
             {/* Overview */}
-            <p className="text-sm md:text-base text-gray-300 line-clamp-3 md:line-clamp-4">
+            <p className="text-body text-[var(--text-secondary)] line-clamp-3 mb-8 max-w-xl">
               {overview}
             </p>
 
             {/* Actions */}
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link href={href}>
-                <Button size="lg" className="gap-2">
-                  <Play size={20} fill="currentColor" />
-                  Assistir
-                </Button>
+            <div className="flex items-center gap-3">
+              <Link href={href} className="btn-primary">
+                <Play size={20} fill="currentColor" />
+                Assistir
               </Link>
-              <Link href={href}>
-                <Button variant="secondary" size="lg" className="gap-2">
-                  <Info size={20} />
-                  Mais Informações
-                </Button>
-              </Link>
+
+              <button className="btn-icon" aria-label="Adicionar à lista">
+                <Plus size={22} strokeWidth={1.5} />
+              </button>
             </div>
           </div>
+
+          {/* Slide Indicators */}
+          {heroItems.length > 1 && (
+            <div className="absolute bottom-8 right-6 md:right-12 flex items-center gap-2">
+              {heroItems.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={cn(
+                    'h-1 rounded-full transition-all duration-300',
+                    index === currentIndex
+                      ? 'w-8 bg-white'
+                      : 'w-4 bg-white/30 hover:bg-white/50'
+                  )}
+                  aria-label={`Ir para slide ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Mute button (for video) */}
+      {showVideo && trailerKey && (
+        <button
+          onClick={() => setMuted(!muted)}
+          className="absolute bottom-8 left-6 md:left-12 btn-icon"
+          aria-label={muted ? 'Ativar som' : 'Desativar som'}
+        >
+          {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+        </button>
+      )}
     </section>
+  );
+}
+
+// Skeleton loader for hero
+export function SkeletonHero() {
+  return (
+    <div className="relative h-[85vh] min-h-[600px] bg-[var(--bg-secondary)]">
+      <div className="absolute inset-0 skeleton" />
+      <div className="hero-gradient-bottom absolute inset-0" />
+      <div className="absolute bottom-24 left-6 md:left-12 space-y-4">
+        <div className="h-4 w-24 rounded bg-white/10" />
+        <div className="h-12 w-80 rounded bg-white/10" />
+        <div className="h-4 w-64 rounded bg-white/10" />
+        <div className="h-4 w-96 rounded bg-white/10" />
+        <div className="flex gap-3 mt-6">
+          <div className="h-12 w-32 rounded-lg bg-white/10" />
+          <div className="h-12 w-12 rounded-full bg-white/10" />
+        </div>
+      </div>
+    </div>
   );
 }
