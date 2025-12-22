@@ -74,8 +74,16 @@ export async function fetchEmbedTVChannels(): Promise<{ channels: Channel[]; cat
   return { channels, categories };
 }
 
-export function getEmbedPlayerUrl(channelId: string): string {
-  return `https://embedtv.best/player.php?id=${channelId}`;
+export function getEmbedPlayerUrl(channelId: string, useProxy = true): string {
+  // URL correta: www1.embedtv.best/{channelId} (não player.php)
+  const baseUrl = `https://www1.embedtv.best/${channelId}`;
+
+  if (useProxy) {
+    // Usar proxy para contornar bloqueios de rede
+    return `/api/proxy/embed?url=${encodeURIComponent(baseUrl)}`;
+  }
+
+  return baseUrl;
 }
 
 export function clearEmbedTVCache(): void {

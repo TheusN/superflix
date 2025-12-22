@@ -153,12 +153,24 @@ export const tmdb = {
 };
 
 export const superflixApi = {
-  getPlayerUrl(type: 'movie' | 'tv', id: string, season?: number, episode?: number): string {
+  // URL base sem proxy
+  getDirectUrl(type: 'movie' | 'tv', id: string, season?: number, episode?: number): string {
     const baseUrl = 'https://superflixapi.run';
     if (type === 'movie') {
       return `${baseUrl}/filme/${id}`;
     }
     return `${baseUrl}/serie/${id}/${season}/${episode}`;
+  },
+
+  // URL com proxy para contornar bloqueios
+  getPlayerUrl(type: 'movie' | 'tv', id: string, season?: number, episode?: number, useProxy = true): string {
+    const directUrl = this.getDirectUrl(type, id, season, episode);
+
+    if (useProxy) {
+      return `/api/proxy/embed?url=${encodeURIComponent(directUrl)}`;
+    }
+
+    return directUrl;
   },
 
   getEmbedUrl(type: 'movie' | 'tv', id: string, season?: number, episode?: number): string {

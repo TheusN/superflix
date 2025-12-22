@@ -7,7 +7,7 @@ import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { Search, Tv, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Tv, RefreshCw, ChevronLeft, ChevronRight, X, Menu } from 'lucide-react';
 import type { Channel, TVFilters } from '@/types/tv';
 
 export default function TVPage() {
@@ -21,6 +21,20 @@ export default function TVPage() {
     category: '',
   });
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setShowSidebar(false);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     loadChannels();
@@ -50,6 +64,14 @@ export default function TVPage() {
     }
   };
 
+  // Selecionar canal e fechar sidebar no mobile
+  const handleSelectChannel = (channel: Channel) => {
+    setSelectedChannel(channel);
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+  };
+
   // Filter channels
   const filteredChannels = useMemo(() => {
     return channels.filter((channel) => {
@@ -69,21 +91,55 @@ export default function TVPage() {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-[var(--bg-primary)]">
-      {/* Sidebar */}
+    <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] bg-[var(--bg-primary)] relative">
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between p-3 bg-[var(--bg-secondary)] border-b border-[var(--border-color)]">
+        <button
+          onClick={() => setShowSidebar(!showSidebar)}
+          className="flex items-center gap-2 text-[var(--text-primary)]"
+        >
+          <Menu size={20} />
+          <span className="text-sm font-medium">
+            {selectedChannel ? selectedChannel.name : 'Selecionar Canal'}
+          </span>
+        </button>
+        <Button variant="ghost" size="sm" onClick={() => loadChannels(true)}>
+          <RefreshCw size={16} />
+        </Button>
+      </div>
+
+      {/* Sidebar - Desktop: fixa, Mobile: overlay */}
       <aside
         className={cn(
-          'flex flex-col border-r border-[var(--border-color)] bg-[var(--bg-secondary)] transition-all duration-300',
-          showSidebar ? 'w-80' : 'w-0 overflow-hidden'
+          'flex flex-col bg-[var(--bg-secondary)] transition-all duration-300 z-20',
+          // Mobile: overlay fullscreen
+          'md:relative md:border-r md:border-[var(--border-color)]',
+          isMobile
+            ? showSidebar
+              ? 'fixed inset-0 top-[calc(4rem+52px)]'
+              : 'hidden'
+            : showSidebar
+              ? 'w-80'
+              : 'w-0 overflow-hidden'
         )}
       >
         {/* Filters */}
         <div className="p-4 space-y-3 border-b border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Canais</h2>
-            <Button variant="ghost" size="sm" onClick={() => loadChannels(true)}>
-              <RefreshCw size={16} />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => loadChannels(true)} className="hidden md:flex">
+                <RefreshCw size={16} />
+              </Button>
+              {isMobile && (
+                <button
+                  onClick={() => setShowSidebar(false)}
+                  className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
           </div>
 
           <Input
@@ -121,11 +177,11 @@ export default function TVPage() {
             <div className="divide-y divide-[var(--border-color)]">
               {filteredChannels.map((channel, index) => (
                 <button
-                  key={`${channel.name}-${index}`}
-                  onClick={() => setSelectedChannel(channel)}
+                  key={`${channel.id}-${index}`}
+                  onClick={() => handleSelectChannel(channel)}
                   className={cn(
                     'w-full flex items-center gap-3 p-3 text-left transition-colors',
-                    'hover:bg-[var(--bg-tertiary)]',
+                    'hover:bg-[var(--bg-tertiary)] active:bg-[var(--bg-tertiary)]',
                     selectedChannel?.id === channel.id && 'bg-[var(--accent-primary)]/10 border-l-2 border-[var(--accent-primary)]'
                   )}
                 >
@@ -133,13 +189,13 @@ export default function TVPage() {
                     <img
                       src={channel.logo}
                       alt={channel.name}
-                      className="w-10 h-10 rounded object-contain bg-white/5"
+                      className="w-10 h-10 rounded object-contain bg-white/5 flex-shrink-0"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded bg-[var(--bg-tertiary)] flex items-center justify-center">
+                    <div className="w-10 h-10 rounded bg-[var(--bg-tertiary)] flex items-center justify-center flex-shrink-0">
                       <Tv size={20} className="text-[var(--text-secondary)]" />
                     </div>
                   )}
@@ -165,27 +221,29 @@ export default function TVPage() {
         </div>
       </aside>
 
-      {/* Toggle Sidebar Button */}
+      {/* Toggle Sidebar Button - Desktop only */}
       <button
         onClick={() => setShowSidebar(!showSidebar)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-r-lg"
-        style={{ left: showSidebar ? '320px' : '0' }}
+        className={cn(
+          'hidden md:block absolute top-1/2 -translate-y-1/2 z-10 p-1 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-r-lg transition-all',
+          showSidebar ? 'left-80' : 'left-0'
+        )}
       >
         {showSidebar ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
       </button>
 
       {/* Player Area */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-h-0">
         {selectedChannel ? (
           <>
             <TVEmbedPlayer
               channelId={selectedChannel.id}
               channelName={selectedChannel.name}
               channelLogo={selectedChannel.logo}
-              className="flex-1"
+              className="flex-1 min-h-[200px] md:min-h-0"
             />
-            <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-color)]">
-              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+            <div className="p-3 md:p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-color)]">
+              <h2 className="text-lg md:text-xl font-semibold text-[var(--text-primary)]">
                 {selectedChannel.name}
               </h2>
               {selectedChannel.category && (
@@ -196,19 +254,28 @@ export default function TVPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center p-4">
             <div className="text-center">
-              <Tv size={64} className="mx-auto mb-4 text-[var(--text-secondary)]" />
-              <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+              <Tv size={48} className="mx-auto mb-4 text-[var(--text-secondary)] md:w-16 md:h-16" />
+              <h2 className="text-lg md:text-xl font-semibold text-[var(--text-primary)] mb-2">
                 Selecione um canal
               </h2>
-              <p className="text-[var(--text-secondary)]">
-                Escolha um canal na lista para começar a assistir
+              <p className="text-sm md:text-base text-[var(--text-secondary)]">
+                {isMobile ? 'Toque no menu acima para ver os canais' : 'Escolha um canal na lista para começar a assistir'}
               </p>
             </div>
           </div>
         )}
       </main>
+
+      {/* Overlay backdrop para mobile */}
+      {isMobile && showSidebar && (
+        <div
+          className="fixed inset-0 bg-black/50 z-10"
+          style={{ top: 'calc(4rem + 52px)' }}
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
     </div>
   );
 }
