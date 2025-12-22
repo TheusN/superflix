@@ -1,7 +1,9 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ====================================
+# SUPERFLIX - .gitignore
+# ====================================
 
-# dependencies
-/node_modules
+# Dependencies
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,32 +12,77 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# Next.js
+.next/
+out/
+build/
 
-# next.js
-/.next/
-/out/
+# Production
+dist/
 
-# production
-/build
+# Environment files (NUNCA faça commit destes!)
+.env
+.env.*
+!.env.example
 
-# misc
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code (configurações locais)
+.claude/
+
+# OS Files
 .DS_Store
-*.pem
+Thumbs.db
+Desktop.ini
 
-# debug
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Test scripts (desenvolvimento local)
+test-*.js
+test-*.ts
+
+# Cache
+.cache/
+*.cache
+.turbo/
+.vercel/
+
+# Misc
+*.pem
+*.p12
+*.key
+*.crt
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Compiled files
+*.js.map
+*.d.ts.map
+
+# Lock files (opcional - descomente se quiser ignorar)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
