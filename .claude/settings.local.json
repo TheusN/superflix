@@ -11,7 +11,11 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Apple TV inspired redesign + clear cache button\n\n- Complete UI redesign inspired by Apple TV aesthetic\n- New global CSS design system with dark theme\n- Cinematic hero section with auto-rotating slides\n- Elegant content cards with hover effects\n- Minimalist header with glass morphism\n- Mobile navigation with refined icons\n- Clear cache button for browser storage cleanup\n- Switch from Inter to Poppins font \\(via next/font\\)\n- Remove theme toggle \\(dark mode only\\)\n- Fix TypeScript types for genres\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
       "Bash(cat:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm run dev)",
+      "Bash(curl:*)",
+      "Bash(node test-padding.js)",
+      "Bash(node:*)"
     ]
   }
 }
