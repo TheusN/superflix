@@ -8,10 +8,19 @@ const ALLOWED_ASSET_DOMAINS = [
   'superflixapi.top',
   'embedtv.best',
   'www1.embedtv.best',
+  // Subdomínios de stream
+  'cdn.superflixapi.run',
+  'stream.superflixapi.run',
+  'cdn.embedtv.best',
+  'stream.embedtv.best',
   // CDNs comuns usados pelos players
   'cdn.jsdelivr.net',
   'cdnjs.cloudflare.com',
   'unpkg.com',
+  // CDNs de vídeo/stream comuns
+  'akamaihd.net',
+  'cloudfront.net',
+  'fastly.net',
 ];
 
 function isAllowedDomain(url: string): boolean {

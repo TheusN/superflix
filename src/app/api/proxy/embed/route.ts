@@ -17,6 +17,9 @@ const PROXY_DOMAINS = [
   'superflixapi.top',
   'embedtv.best',
   'www1.embedtv.best',
+  // Domínios de stream HLS comuns
+  'cdn.superflixapi.run',
+  'stream.superflixapi.run',
 ];
 
 function isAllowedDomain(url: string): boolean {
@@ -77,21 +80,30 @@ function rewriteUrlsToProxy(html: string, baseOrigin: string): string {
     }
   );
 
-  // Injetar script para interceptar fetch e XMLHttpRequest
+  // Injetar script para interceptar fetch, XMLHttpRequest e HLS
   const interceptorScript = `
 <script>
 (function() {
   const PROXY_DOMAINS = ${JSON.stringify(PROXY_DOMAINS)};
+  const PROXY_BASE = '/api/proxy/';
 
   function shouldProxy(url) {
     try {
+      // Converter URL relativa para absoluta
       const urlObj = new URL(url, window.location.origin);
+      // Verificar se é um domínio que deve ser proxiado
       return PROXY_DOMAINS.some(d => urlObj.hostname === d || urlObj.hostname.endsWith('.' + d));
     } catch { return false; }
   }
 
-  function proxyUrl(url) {
-    return '/api/proxy/asset?url=' + encodeURIComponent(url);
+  function proxyUrl(url, type) {
+    // Determinar qual endpoint usar baseado no tipo
+    const endpoint = type === 'hls' ? 'hls' : 'asset';
+    return PROXY_BASE + endpoint + '?url=' + encodeURIComponent(url);
+  }
+
+  function isHlsUrl(url) {
+    return url.includes('.m3u8') || url.includes('.ts');
   }
 
   // Interceptar fetch
@@ -99,7 +111,8 @@ function rewriteUrlsToProxy(html: string, baseOrigin: string): string {
   window.fetch = function(input, init) {
     let url = typeof input === 'string' ? input : input.url;
     if (shouldProxy(url)) {
-      url = proxyUrl(url);
+      const type = isHlsUrl(url) ? 'hls' : 'asset';
+      url = proxyUrl(url, type);
       if (typeof input === 'string') {
         input = url;
       } else {
@@ -113,10 +126,41 @@ function rewriteUrlsToProxy(html: string, baseOrigin: string): string {
   const originalOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(method, url, ...args) {
     if (shouldProxy(url)) {
-      url = proxyUrl(url);
+      const type = isHlsUrl(url) ? 'hls' : 'asset';
+      url = proxyUrl(url, type);
     }
     return originalOpen.call(this, method, url, ...args);
   };
+
+  // Interceptar createElement para capturar scripts dinâmicos
+  const originalCreateElement = document.createElement;
+  document.createElement = function(tagName) {
+    const element = originalCreateElement.call(document, tagName);
+    if (tagName.toLowerCase() === 'script' || tagName.toLowerCase() === 'img') {
+      const originalSetAttribute = element.setAttribute;
+      element.setAttribute = function(name, value) {
+        if (name === 'src' && shouldProxy(value)) {
+          value = proxyUrl(value, 'asset');
+        }
+        return originalSetAttribute.call(this, name, value);
+      };
+      // Também interceptar a propriedade src
+      Object.defineProperty(element, 'src', {
+        set: function(value) {
+          if (shouldProxy(value)) {
+            value = proxyUrl(value, 'asset');
+          }
+          this.setAttribute('src', value);
+        },
+        get: function() {
+          return this.getAttribute('src');
+        }
+      });
+    }
+    return element;
+  };
+
+  console.log('[Superflix Proxy] Interceptors initialized');
 })();
 </script>`;
 
@@ -232,7 +276,10 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
         'X-Frame-Options': 'ALLOWALL',
+        'Content-Security-Policy': "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; media-src * blob:; connect-src *; frame-src *;",
         'Cache-Control': 'no-cache',
       },
     });

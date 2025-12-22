@@ -12,6 +12,12 @@ export default function TVPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+
+  // Resetar estado do player quando mudar de canal
+  const selectChannel = (channel: Channel | null) => {
+    setIsPlayerReady(false);
+    setSelectedChannel(channel);
+  };
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,6 +25,7 @@ export default function TVPage() {
   const [activeTab, setActiveTab] = useState<TabType>('channels');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
 
   // Detectar mobile
   useEffect(() => {
@@ -106,7 +113,7 @@ export default function TVPage() {
         {/* Header do Player */}
         <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent p-4">
           <button
-            onClick={() => setSelectedChannel(null)}
+            onClick={() => selectChannel(null)}
             className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors"
           >
             <ArrowLeft size={24} />
@@ -115,12 +122,26 @@ export default function TVPage() {
         </div>
 
         {/* Player */}
-        <div className="w-full h-screen">
+        <div className="w-full h-screen relative">
+          {/* Loading overlay */}
+          {!isPlayerReady && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black">
+              <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-white text-lg">Carregando {selectedChannel.name}...</p>
+              <p className="text-gray-500 text-sm mt-2">Aguarde ou clique no player para iniciar</p>
+            </div>
+          )}
           <iframe
             src={getEmbedPlayerUrl(selectedChannel.id)}
-            className="w-full h-full"
+            className="w-full h-full border-0"
             allowFullScreen
-            allow="autoplay; fullscreen; encrypted-media"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            referrerPolicy="no-referrer-when-downgrade"
+            style={{ border: 'none', background: 'black' }}
+            onLoad={() => {
+              // Dar um tempo para o player interno carregar
+              setTimeout(() => setIsPlayerReady(true), 2000);
+            }}
           />
         </div>
 
@@ -332,7 +353,7 @@ export default function TVPage() {
                 key={channel.id}
                 channel={channel}
                 isFavorite={favorites.includes(channel.id)}
-                onSelect={() => setSelectedChannel(channel)}
+                onSelect={() => selectChannel(channel)}
                 onToggleFavorite={() => toggleFavorite(channel.id)}
               />
             ))}
@@ -352,7 +373,7 @@ export default function TVPage() {
                       key={channel.id}
                       channel={channel}
                       isFavorite={favorites.includes(channel.id)}
-                      onSelect={() => setSelectedChannel(channel)}
+                      onSelect={() => selectChannel(channel)}
                       onToggleFavorite={() => toggleFavorite(channel.id)}
                     />
                   ))}
@@ -366,7 +387,7 @@ export default function TVPage() {
                   title={category}
                   channels={categoryChannels}
                   favorites={favorites}
-                  onSelectChannel={setSelectedChannel}
+                  onSelectChannel={selectChannel}
                   onToggleFavorite={toggleFavorite}
                 />
               ))
