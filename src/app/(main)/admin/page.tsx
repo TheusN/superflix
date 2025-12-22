@@ -29,7 +29,6 @@ export default function AdminPage() {
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [settings, setSettings] = useState<AdminSettings>({
-    m3u_url: '',
     site_name: 'Superflix',
     maintenance_mode: false,
   });
@@ -319,14 +318,6 @@ export default function AdminPage() {
                   onChange={(e) =>
                     setSettings({ ...settings, site_name: e.target.value })
                   }
-                />
-                <Input
-                  label="URL da Playlist M3U"
-                  value={settings.m3u_url}
-                  onChange={(e) =>
-                    setSettings({ ...settings, m3u_url: e.target.value })
-                  }
-                  placeholder="https://exemplo.com/playlist.m3u"
                 />
                 <div className="flex items-center justify-between">
                   <div>

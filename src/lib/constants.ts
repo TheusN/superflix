@@ -28,9 +28,6 @@ export const IMAGE_SIZES = {
   },
 };
 
-// Default M3U URL
-export const DEFAULT_M3U_URL = 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8';
-
 // Cache TTL (10 minutes)
 export const CACHE_TTL = 10 * 60 * 1000;
 

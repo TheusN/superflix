@@ -7,16 +7,10 @@ export interface Channel {
   url: string;
 }
 
-export interface M3UPlaylist {
-  channels: Channel[];
-  countries: string[];
-  categories: string[];
-}
-
 export interface TVFilters {
-  country: string;
   category: string;
   search: string;
+  country?: string; // Mantido para compatibilidade
 }
 
 export interface TVState {
@@ -27,10 +21,4 @@ export interface TVState {
   isLoading: boolean;
   error: string | null;
   filters: TVFilters;
-}
-
-export interface M3UParseOptions {
-  filterOffline?: boolean;
-  filterHeaders?: boolean;
-  defaultCountry?: string;
 }

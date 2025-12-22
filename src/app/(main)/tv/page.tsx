@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { parseM3U } from '@/services/m3u';
-import { TVPlayer } from '@/components/player/TVPlayer';
+import { fetchEmbedTVChannels, clearEmbedTVCache } from '@/services/embedtv';
+import { TVEmbedPlayer } from '@/components/player/TVEmbedPlayer';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -12,12 +12,12 @@ import type { Channel, TVFilters } from '@/types/tv';
 
 export default function TVPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<TVFilters>({
     search: '',
-    country: '',
     category: '',
   });
   const [showSidebar, setShowSidebar] = useState(true);
@@ -26,25 +26,21 @@ export default function TVPage() {
     loadChannels();
   }, []);
 
-  const loadChannels = async () => {
+  const loadChannels = async (forceRefresh = false) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/settings/m3u');
-      const data = await response.json();
+      if (forceRefresh) {
+        clearEmbedTVCache();
+      }
 
-      if (data.url) {
-        const m3uResponse = await fetch(data.url);
-        const m3uText = await m3uResponse.text();
-        const playlist = parseM3U(m3uText);
-        setChannels(playlist.channels);
+      const data = await fetchEmbedTVChannels();
+      setChannels(data.channels);
+      setCategories(data.categories);
 
-        if (playlist.channels.length > 0 && !selectedChannel) {
-          setSelectedChannel(playlist.channels[0]);
-        }
-      } else {
-        setError('Nenhuma playlist M3U configurada');
+      if (data.channels.length > 0 && !selectedChannel) {
+        setSelectedChannel(data.channels[0]);
       }
     } catch (err) {
       console.error('Error loading channels:', err);
@@ -54,41 +50,18 @@ export default function TVPage() {
     }
   };
 
-  // Get unique countries and categories
-  const { countries, categories } = useMemo(() => {
-    const countrySet = new Set<string>();
-    const categorySet = new Set<string>();
-
-    channels.forEach((channel) => {
-      if (channel.country) countrySet.add(channel.country);
-      if (channel.category) categorySet.add(channel.category);
-    });
-
-    return {
-      countries: Array.from(countrySet).sort(),
-      categories: Array.from(categorySet).sort(),
-    };
-  }, [channels]);
-
   // Filter channels
   const filteredChannels = useMemo(() => {
     return channels.filter((channel) => {
       const matchesSearch =
         !filters.search ||
         channel.name.toLowerCase().includes(filters.search.toLowerCase());
-      const matchesCountry =
-        !filters.country || channel.country === filters.country;
       const matchesCategory =
         !filters.category || channel.category === filters.category;
 
-      return matchesSearch && matchesCountry && matchesCategory;
+      return matchesSearch && matchesCategory;
     });
   }, [channels, filters]);
-
-  const countryOptions = [
-    { value: '', label: 'Todos os Países' },
-    ...countries.map((c) => ({ value: c, label: c })),
-  ];
 
   const categoryOptions = [
     { value: '', label: 'Todas as Categorias' },
@@ -108,7 +81,7 @@ export default function TVPage() {
         <div className="p-4 space-y-3 border-b border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Canais</h2>
-            <Button variant="ghost" size="sm" onClick={loadChannels}>
+            <Button variant="ghost" size="sm" onClick={() => loadChannels(true)}>
               <RefreshCw size={16} />
             </Button>
           </div>
@@ -118,12 +91,6 @@ export default function TVPage() {
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             icon={<Search size={18} />}
-          />
-
-          <Select
-            options={countryOptions}
-            value={filters.country}
-            onChange={(e) => setFilters({ ...filters, country: e.target.value })}
           />
 
           <Select
@@ -142,7 +109,7 @@ export default function TVPage() {
           ) : error ? (
             <div className="p-4 text-center">
               <p className="text-red-500 mb-2">{error}</p>
-              <Button variant="secondary" size="sm" onClick={loadChannels}>
+              <Button variant="secondary" size="sm" onClick={() => loadChannels()}>
                 Tentar novamente
               </Button>
             </div>
@@ -159,7 +126,7 @@ export default function TVPage() {
                   className={cn(
                     'w-full flex items-center gap-3 p-3 text-left transition-colors',
                     'hover:bg-[var(--bg-tertiary)]',
-                    selectedChannel?.url === channel.url && 'bg-[var(--accent-primary)]/10 border-l-2 border-[var(--accent-primary)]'
+                    selectedChannel?.id === channel.id && 'bg-[var(--accent-primary)]/10 border-l-2 border-[var(--accent-primary)]'
                   )}
                 >
                   {channel.logo ? (
@@ -211,8 +178,8 @@ export default function TVPage() {
       <main className="flex-1 flex flex-col">
         {selectedChannel ? (
           <>
-            <TVPlayer
-              streamUrl={selectedChannel.url}
+            <TVEmbedPlayer
+              channelId={selectedChannel.id}
               channelName={selectedChannel.name}
               channelLogo={selectedChannel.logo}
               className="flex-1"

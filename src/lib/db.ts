@@ -44,9 +44,7 @@ const inMemoryData = {
   users: [] as User[],
   watchHistory: [] as WatchHistoryItem[],
   favorites: [] as Favorite[],
-  settings: new Map<string, string>([
-    ['m3u_url', 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8']
-  ]),
+  settings: new Map<string, string>(),
 };
 
 export async function query(text: string, params?: unknown[]) {
@@ -141,13 +139,6 @@ export async function initializeDatabase() {
         ip_address VARCHAR(45),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `;
-
-    // Inserir configuração padrão de M3U se não existir
-    await sql`
-      INSERT INTO system_settings (key, value, description)
-      VALUES ('m3u_url', 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8', 'URL da playlist M3U para TV ao vivo')
-      ON CONFLICT (key) DO NOTHING
     `;
 
     console.log('Database initialized successfully');

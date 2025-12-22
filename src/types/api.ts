@@ -33,7 +33,6 @@ export interface AdminDashboardStats {
 }
 
 export interface AdminSettings {
-  m3u_url: string;
   site_name: string;
   maintenance_mode: boolean;
 }
