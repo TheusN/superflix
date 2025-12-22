@@ -136,7 +136,7 @@ function rewriteUrlsToProxy(html: string, baseOrigin: string): string {
 export const dynamic = 'force-dynamic';
 
 // Função para seguir redirects com DNS customizado
-async function fetchWithRedirects(url: string, maxRedirects = 5): Promise<{ status: number; body: string } | null> {
+async function fetchWithRedirects(url: string, referer: string, maxRedirects = 5): Promise<{ status: number; body: string } | null> {
   let currentUrl = url;
   let redirectCount = 0;
 
@@ -154,7 +154,7 @@ async function fetchWithRedirects(url: string, maxRedirects = 5): Promise<{ stat
     console.log(`[Proxy] ${hostname} -> ${resolvedIP}`);
 
     try {
-      const result = await fetchWithResolvedDNS(currentUrl, resolvedIP);
+      const result = await fetchWithResolvedDNS(currentUrl, resolvedIP, { referer });
 
       // Se for redirect, seguir
       if (result.status >= 300 && result.status < 400 && result.redirect) {
@@ -196,7 +196,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await fetchWithRedirects(url);
+    // Usar o referer da request ou o host do site
+    const requestReferer = request.headers.get('referer') || request.headers.get('origin');
+    const referer = requestReferer || `https://${request.headers.get('host') || 'superflix.app'}/`;
+
+    const result = await fetchWithRedirects(url, referer);
 
     if (!result) {
       return NextResponse.json({ error: 'Erro ao acessar o conteúdo' }, { status: 502 });
