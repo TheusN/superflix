@@ -117,11 +117,13 @@ Edite o arquivo `.env.local`:
 NEXT_PUBLIC_TMDB_API_KEY=sua_chave_tmdb_aqui
 
 # OPCIONAL - Banco de dados (sem isso, usa memória)
-POSTGRES_URL=sua_connection_string_postgres
+POSTGRES_URL=postgres://usuario:senha@host:5432/database
 
 # OPCIONAL - Segredo para JWT (tem valor padrão para dev)
 JWT_SECRET=seu_segredo_super_secreto
 ```
+
+> ⚠️ **IMPORTANTE:** Nunca compartilhe seu arquivo `.env.local` ou faça commit dele no Git!
 
 ### Rodando Localmente
 
@@ -273,6 +275,108 @@ Cliente → Next.js API → DNS over HTTPS (Cloudflare) → Conteúdo
 - **Cloudflare DoH** - Resolução DNS segura
 - **Interceptors JS** - Reescrita de URLs em tempo real
 - **HLS Proxy** - Streaming adaptativo
+
+---
+
+## 🗄️ Banco de Dados (Opcional)
+
+O Superflix pode funcionar **com ou sem banco de dados**:
+
+### Sem Banco de Dados (Padrão)
+- Dados armazenados **em memória** (perdem ao reiniciar)
+- Histórico e favoritos salvos no **localStorage** do navegador
+- Ideal para testes e desenvolvimento local
+
+### Com Banco de Dados (Produção)
+- Dados **persistentes** no PostgreSQL
+- Sincronização entre dispositivos
+- Histórico de visualização
+- Favoritos do usuário
+- Sistema de contas/autenticação
+- Painel administrativo
+
+### Configurando o PostgreSQL
+
+#### Opção 1: Vercel Postgres (Recomendado)
+
+1. Acesse o [Dashboard da Vercel](https://vercel.com/dashboard)
+2. Vá em **Storage** → **Create Database** → **Postgres**
+3. Copie a `POSTGRES_URL` gerada
+4. Adicione no seu `.env.local`:
+
+```env
+POSTGRES_URL="postgres://default:xxxxx@ep-xxx.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
+```
+
+#### Opção 2: Supabase (Gratuito)
+
+1. Crie uma conta em [supabase.com](https://supabase.com)
+2. Crie um novo projeto
+3. Vá em **Settings** → **Database** → **Connection string**
+4. Copie a URI e adicione no `.env.local`
+
+#### Opção 3: Outros Provedores
+
+Qualquer PostgreSQL funciona:
+- [Railway](https://railway.app)
+- [Render](https://render.com)
+- [Neon](https://neon.tech)
+- [ElephantSQL](https://www.elephantsql.com)
+- Docker local
+
+### Tabelas Criadas Automaticamente
+
+Ao conectar o banco, as seguintes tabelas são criadas:
+
+| Tabela | Descrição |
+|--------|-----------|
+| `users` | Usuários registrados |
+| `watch_history` | Histórico de visualização |
+| `favorites` | Conteúdos favoritos |
+| `system_settings` | Configurações do sistema |
+| `admin_logs` | Logs de ações administrativas |
+
+---
+
+## 🔒 Segurança
+
+### Variáveis de Ambiente
+
+| Variável | Tipo | Exposição |
+|----------|------|-----------|
+| `NEXT_PUBLIC_TMDB_API_KEY` | Pública | Exposta no cliente (normal para TMDB) |
+| `POSTGRES_URL` | Privada | **Nunca exposta** - apenas servidor |
+| `JWT_SECRET` | Privada | **Nunca exposta** - apenas servidor |
+
+### Boas Práticas
+
+1. **Nunca faça commit de `.env.local`** - já está no `.gitignore`
+2. **Use JWT_SECRET forte em produção** - mínimo 32 caracteres aleatórios
+3. **POSTGRES_URL é sensível** - contém usuário e senha do banco
+4. **Senhas são hasheadas** - usando bcrypt com salt
+
+### Gerando JWT_SECRET Seguro
+
+```bash
+# Linux/Mac
+openssl rand -base64 32
+
+# Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### O que NÃO é exposto
+
+- ✅ Credenciais do banco de dados (POSTGRES_URL)
+- ✅ Segredo JWT (JWT_SECRET)
+- ✅ Senhas dos usuários (hasheadas com bcrypt)
+- ✅ Tokens de autenticação (HttpOnly cookies)
+
+### O que É exposto (e é seguro)
+
+- ⚠️ `NEXT_PUBLIC_TMDB_API_KEY` - API pública do TMDB (por design)
+
+> A chave do TMDB é pública por design - ela só permite leitura de metadados públicos de filmes/séries.
 
 ---
 

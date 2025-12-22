@@ -66,8 +66,13 @@ export default function CalendarioPage() {
       const dateStr = date.toISOString().split('T')[0];
 
       // Fetch releases for the selected date from TMDB
+      const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+      if (!apiKey) {
+        console.error('TMDB API key not configured');
+        return;
+      }
       const response = await fetch(
-        `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb'}&language=pt-BR&primary_release_date.gte=${dateStr}&primary_release_date.lte=${dateStr}&sort_by=popularity.desc`
+        `https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}&language=pt-BR&primary_release_date.gte=${dateStr}&primary_release_date.lte=${dateStr}&sort_by=popularity.desc`
       );
 
       if (response.ok) {
