@@ -1,6 +1,8 @@
-# CLAUDE.md
+# AGENT.md
 
-Este arquivo fornece orientações ao Claude Code (claude.ai/code) ao trabalhar com código neste repositório.
+Este arquivo fornece orientações para agentes de IA (Claude Code, Cursor, Copilot, etc.) ao trabalhar com código neste repositório.
+
+> **Para desenvolvedores usando "vibe coding":** Este arquivo contém o contexto necessário para que a IA entenda o projeto. Mantenha-o atualizado conforme o projeto evolui.
 
 ## Comandos de Build e Desenvolvimento
 

@@ -165,11 +165,48 @@ superflix/
 │   ├── 📂 services/        # Integrações (TMDB, EmbedTV)
 │   └── 📂 types/           # Definições TypeScript
 ├── 📄 .env.local           # Variáveis de ambiente (criar)
-├── 📄 CLAUDE.md            # Instruções para IA
+├── 📄 AGENT.md             # Instruções para agentes de IA
 ├── 📄 next.config.ts       # Configuração Next.js
 ├── 📄 tailwind.config.ts   # Configuração Tailwind
 └── 📄 package.json         # Dependências
 ```
+
+---
+
+## 🤖 Desenvolvimento com IA (Vibe Coding)
+
+Este projeto é compatível com ferramentas de **vibe coding** - desenvolvimento assistido por IA como Claude Code, Cursor, GitHub Copilot, etc.
+
+### Arquivo AGENT.md
+
+O arquivo [`AGENT.md`](AGENT.md) contém todas as instruções que os agentes de IA precisam para entender e modificar o código corretamente:
+
+- Arquitetura do projeto
+- Comandos disponíveis
+- Estrutura de pastas
+- Convenções de código
+- Variáveis de ambiente
+- Fluxo de autenticação
+- Configuração do banco de dados
+
+### Como usar
+
+1. **Claude Code**: O arquivo é lido automaticamente
+2. **Cursor**: Adicione `AGENT.md` ao contexto ou use `@AGENT.md`
+3. **Copilot Chat**: Mencione o arquivo nas conversas
+4. **Outros**: Copie o conteúdo para o prompt inicial
+
+### Dicas para Vibe Coding
+
+```bash
+# Bons prompts para começar:
+"Leia o AGENT.md e me explique a arquitetura do projeto"
+"Adicione uma nova página de detalhes para atores"
+"Corrija o bug de autenticação no middleware"
+"Implemente cache de imagens no componente ContentCard"
+```
+
+> **Mantenha o AGENT.md atualizado!** Quando fizer mudanças significativas na arquitetura, atualize o arquivo para que a IA continue entendendo o projeto.
 
 ---
 

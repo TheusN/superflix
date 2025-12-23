@@ -32,8 +32,11 @@ dist/
 *.swo
 *~
 
-# Claude Code (configurações locais)
+# AI Agents / IDE Extensions (configurações locais)
 .claude/
+.cursor/
+.aider*
+.continue/
 
 # OS Files
 .DS_Store
