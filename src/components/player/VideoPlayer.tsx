@@ -31,18 +31,25 @@ export function VideoPlayer({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [useProxy, setUseProxy] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Generate player URL
-  const playerUrl = mediaType === 'movie'
+  // Generate player URL - try direct first, fallback to proxy
+  const directUrl = mediaType === 'movie'
+    ? superflixApi.getDirectUrl('movie', imdbId || String(tmdbId))
+    : superflixApi.getDirectUrl('tv', String(tmdbId), season, episode);
+
+  const proxyUrl = mediaType === 'movie'
     ? superflixApi.getPlayerUrl('movie', imdbId || String(tmdbId))
     : superflixApi.getPlayerUrl('tv', String(tmdbId), season, episode);
+
+  const playerUrl = useProxy ? proxyUrl : directUrl;
 
   useEffect(() => {
     setIsLoading(true);
     setError(null);
-  }, [playerUrl]);
+  }, [playerUrl, useProxy]);
 
   const handleLoad = () => {
     setIsLoading(false);
@@ -105,18 +112,31 @@ export function VideoPlayer({
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <p className="text-white mb-4">{error}</p>
-            <button
-              onClick={() => {
-                setError(null);
-                setIsLoading(true);
-                if (iframeRef.current) {
-                  iframeRef.current.src = playerUrl;
-                }
-              }}
-              className="px-4 py-2 bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
-            >
-              Tentar novamente
-            </button>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  // Toggle proxy mode and retry
+                  setUseProxy(!useProxy);
+                }}
+                className="px-4 py-2 bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
+              >
+                {useProxy ? 'Tentar sem proxy' : 'Tentar com proxy'}
+              </button>
+              <button
+                onClick={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  if (iframeRef.current) {
+                    iframeRef.current.src = playerUrl;
+                  }
+                }}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors"
+              >
+                Recarregar
+              </button>
+            </div>
           </div>
         </div>
       )}
