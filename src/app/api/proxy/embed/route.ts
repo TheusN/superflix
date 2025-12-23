@@ -49,20 +49,22 @@ function rewriteUrlsToProxy(html: string, baseOrigin: string): string {
   const proxyUrl = (url: string) => `/api/proxy/asset?url=${encodeURIComponent(url)}`;
 
   // Reescrever URLs em atributos src e href que apontam para domínios bloqueados
+  // Importante: só reescreve se a URL é completa (não tem concatenação JS como " + variavel)
   html = html.replace(
-    /(src|href)=["'](https?:\/\/[^"']+)["']/gi,
-    (match, attr, url) => {
+    /(src|href)=(["'])(https?:\/\/[^"']+)\2(?!\s*\+)/gi,
+    (match, attr, quote, url) => {
       if (shouldProxyUrl(url)) {
-        return `${attr}="${proxyUrl(url)}"`;
+        return `${attr}=${quote}${proxyUrl(url)}${quote}`;
       }
       return match;
     }
   );
 
   // Reescrever URLs relativas (sem http/https) para URLs absolutas e então para proxy
+  // Importante: só reescreve se a URL é completa (não tem concatenação JS)
   html = html.replace(
-    /(src|href)=["'](?!https?:\/\/|data:|\/api\/|#|javascript:)([^"']+)["']/gi,
-    (match, attr, path) => {
+    /(src|href)=(["'])(?!https?:\/\/|data:|\/api\/|#|javascript:)([^"']+)\2(?!\s*\+)/gi,
+    (match, attr, quote, path) => {
       // Construir URL absoluta
       let absoluteUrl: string;
       if (path.startsWith('//')) {
@@ -74,9 +76,9 @@ function rewriteUrlsToProxy(html: string, baseOrigin: string): string {
       }
 
       if (shouldProxyUrl(absoluteUrl)) {
-        return `${attr}="${proxyUrl(absoluteUrl)}"`;
+        return `${attr}=${quote}${proxyUrl(absoluteUrl)}${quote}`;
       }
-      return `${attr}="${absoluteUrl}"`;
+      return `${attr}=${quote}${absoluteUrl}${quote}`;
     }
   );
 
@@ -279,7 +281,7 @@ export async function GET(request: NextRequest) {
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': '*',
         'X-Frame-Options': 'ALLOWALL',
-        'Content-Security-Policy': "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; media-src * blob:; connect-src *; frame-src *;",
+        'Content-Security-Policy': "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval' blob:; worker-src * blob:; style-src * 'unsafe-inline'; img-src * data: blob:; media-src * blob:; connect-src *; frame-src *;",
         'Cache-Control': 'no-cache',
       },
     });
