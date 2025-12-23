@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Marcar pg como pacote externo do servidor para evitar problemas com bundlers
+  serverExternalPackages: ['pg', 'pg-native'],
+  // Desabilitar Turbopack em desenvolvimento para compatibilidade com pg no Windows
+  turbopack: {
+    rules: {},
+  },
   images: {
     remotePatterns: [
       {

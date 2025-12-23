@@ -134,7 +134,6 @@ export default function TVPage() {
           <iframe
             src={getEmbedPlayerUrl(selectedChannel.id)}
             className="w-full h-full border-0"
-            allowFullScreen
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             referrerPolicy="no-referrer-when-downgrade"
             style={{ border: 'none', background: 'black' }}

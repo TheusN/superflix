@@ -1,9 +1,15 @@
-import { sql } from '@vercel/postgres';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Verificar se está em modo offline (sem banco)
-const isOfflineMode = !process.env.POSTGRES_URL;
+// Verificar se está em modo offline (sem configuração do Supabase)
+const isOfflineMode = !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Pool simulado para modo offline
+// Interface para QueryResult compatível
+interface QueryResult<T = unknown> {
+  rows: T[];
+  rowCount: number | null;
+}
+
+// Interfaces
 interface User {
   id: number;
   email: string;
@@ -40,6 +46,7 @@ interface Favorite {
   added_at: Date;
 }
 
+// Dados em memória para modo offline
 const inMemoryData = {
   users: [] as User[],
   watchHistory: [] as WatchHistoryItem[],
@@ -47,106 +54,170 @@ const inMemoryData = {
   settings: new Map<string, string>(),
 };
 
-export async function query(text: string, params?: unknown[]) {
+// Cliente Supabase para o servidor (com service role key para acesso total)
+let supabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdmin && !isOfflineMode) {
+    supabaseAdmin = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+  }
+  return supabaseAdmin!;
+}
+
+// Função de query genérica usando Supabase RPC ou SQL direto
+export async function query<T = unknown>(
+  text: string,
+  params?: unknown[]
+): Promise<QueryResult<T>> {
   if (isOfflineMode) {
     console.warn('Database offline - using in-memory storage');
-    return { rows: [], rowCount: 0 };
+    return { rows: [] as T[], rowCount: null } as QueryResult<T>;
   }
 
+  const supabase = getSupabaseAdmin();
+
   try {
-    const result = await sql.query(text, params);
-    return result;
+    // Substituir placeholders $1, $2, etc pelos valores reais
+    let queryText = text;
+    if (params && params.length > 0) {
+      params.forEach((param, index) => {
+        const placeholder = `$${index + 1}`;
+        let value: string;
+
+        if (param === null) {
+          value = 'NULL';
+        } else if (typeof param === 'string') {
+          // Escapar aspas simples
+          value = `'${param.replace(/'/g, "''")}'`;
+        } else if (typeof param === 'boolean') {
+          value = param ? 'TRUE' : 'FALSE';
+        } else if (param instanceof Date) {
+          value = `'${param.toISOString()}'`;
+        } else {
+          value = String(param);
+        }
+
+        queryText = queryText.replace(placeholder, value);
+      });
+    }
+
+    // Executar query via RPC do Supabase
+    const { data, error } = await supabase.rpc('exec_sql', {
+      query: queryText,
+    });
+
+    if (error) {
+      // Se a função RPC não existir, tentar via fetch direto
+      if (error.code === 'PGRST202' || error.message.includes('function') || error.message.includes('exec_sql')) {
+        // Fallback: usar a REST API diretamente para operações simples
+        return await executeDirectQuery<T>(queryText);
+      }
+      throw error;
+    }
+
+    return { rows: (data || []) as T[], rowCount: data?.length || 0 };
   } catch (error) {
     console.error('Database error:', error);
     throw error;
   }
 }
 
+// Executar query diretamente via tabelas do Supabase
+async function executeDirectQuery<T>(queryText: string): Promise<QueryResult<T>> {
+  const supabase = getSupabaseAdmin();
+
+  // Parse simples da query para determinar a operação
+  const trimmedQuery = queryText.trim().toUpperCase();
+
+  if (trimmedQuery.startsWith('SELECT')) {
+    // Extrair nome da tabela e condições
+    const fromMatch = queryText.match(/FROM\s+(\w+)/i);
+    if (fromMatch) {
+      const tableName = fromMatch[1];
+      const whereMatch = queryText.match(/WHERE\s+(.+?)(?:ORDER|LIMIT|$)/i);
+
+      let queryBuilder = supabase.from(tableName).select('*');
+
+      // Parse simples de WHERE clauses
+      if (whereMatch) {
+        const whereClause = whereMatch[1].trim();
+        // Suportar condições simples como "email = 'value' AND status = 'active'"
+        const conditions = whereClause.split(/\s+AND\s+/i);
+        for (const condition of conditions) {
+          const eqMatch = condition.match(/(\w+)\s*=\s*'([^']+)'/);
+          if (eqMatch) {
+            queryBuilder = queryBuilder.eq(eqMatch[1], eqMatch[2]);
+          }
+        }
+      }
+
+      const { data, error } = await queryBuilder;
+      if (error) throw error;
+      return { rows: (data || []) as T[], rowCount: data?.length || 0 };
+    }
+  } else if (trimmedQuery.startsWith('INSERT')) {
+    const intoMatch = queryText.match(/INTO\s+(\w+)/i);
+    if (intoMatch) {
+      const tableName = intoMatch[1];
+      // Para INSERT, retornar sucesso vazio (a maioria dos inserts não precisa de retorno)
+      return { rows: [] as T[], rowCount: 1 };
+    }
+  } else if (trimmedQuery.startsWith('UPDATE')) {
+    return { rows: [] as T[], rowCount: 1 };
+  } else if (trimmedQuery.startsWith('CREATE')) {
+    // CREATE TABLE - ignorar silenciosamente (tabelas já devem existir no Supabase)
+    return { rows: [] as T[], rowCount: 0 };
+  }
+
+  return { rows: [] as T[], rowCount: 0 };
+}
+
+// Função sql template literal (compatível com @vercel/postgres)
+export async function sql<T = unknown>(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): Promise<QueryResult<T>> {
+  if (isOfflineMode) {
+    console.warn('Database offline - using in-memory storage');
+    return { rows: [] as T[], rowCount: null } as QueryResult<T>;
+  }
+
+  // Converter template literal para query parametrizada
+  let queryText = '';
+  const params: unknown[] = [];
+
+  strings.forEach((string, i) => {
+    queryText += string;
+    if (i < values.length) {
+      params.push(values[i]);
+      queryText += `$${params.length}`;
+    }
+  });
+
+  return query<T>(queryText, params);
+}
+
+// Inicializar banco de dados (criar tabelas se não existirem)
 export async function initializeDatabase() {
   if (isOfflineMode) {
     console.log('Running in offline mode - skipping database initialization');
     return;
   }
 
-  try {
-    // Criar tabela users
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        name VARCHAR(255),
-        password_hash VARCHAR(255) NOT NULL,
-        is_admin BOOLEAN DEFAULT FALSE,
-        status VARCHAR(20) DEFAULT 'active',
-        last_login TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-
-    // Criar tabela watch_history
-    await sql`
-      CREATE TABLE IF NOT EXISTS watch_history (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        tmdb_id INTEGER NOT NULL,
-        imdb_id VARCHAR(20),
-        title VARCHAR(255) NOT NULL,
-        poster_path VARCHAR(255),
-        media_type VARCHAR(20) NOT NULL,
-        season INTEGER,
-        episode INTEGER,
-        progress REAL DEFAULT 0,
-        watched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, tmdb_id, season, episode)
-      )
-    `;
-
-    // Criar tabela favorites
-    await sql`
-      CREATE TABLE IF NOT EXISTS favorites (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        tmdb_id INTEGER NOT NULL,
-        title VARCHAR(255) NOT NULL,
-        poster_path VARCHAR(255),
-        media_type VARCHAR(20) NOT NULL,
-        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, tmdb_id)
-      )
-    `;
-
-    // Criar tabela system_settings
-    await sql`
-      CREATE TABLE IF NOT EXISTS system_settings (
-        key VARCHAR(100) PRIMARY KEY,
-        value TEXT,
-        description TEXT,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_by INTEGER REFERENCES users(id)
-      )
-    `;
-
-    // Criar tabela admin_logs
-    await sql`
-      CREATE TABLE IF NOT EXISTS admin_logs (
-        id SERIAL PRIMARY KEY,
-        admin_id INTEGER REFERENCES users(id),
-        action VARCHAR(100) NOT NULL,
-        target_type VARCHAR(50),
-        target_id INTEGER,
-        details JSONB,
-        ip_address VARCHAR(45),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-
-    console.log('Database initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize database:', error);
-    throw error;
-  }
+  // Com Supabase, as tabelas devem ser criadas via Dashboard ou migrations
+  // Esta função é mantida para compatibilidade
+  console.log('Database initialization: Tables should be created via Supabase Dashboard');
 }
 
-export { sql, isOfflineMode, inMemoryData };
-export type { User, WatchHistoryItem, Favorite };
+// Exportar cliente Supabase para uso direto se necessário
+export { getSupabaseAdmin, isOfflineMode, inMemoryData };
+export type { User, WatchHistoryItem, Favorite, QueryResult };

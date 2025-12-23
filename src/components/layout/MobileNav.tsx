@@ -1,32 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Home, Film, Tv, Radio, User } from 'lucide-react';
 
 export function MobileNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const category = searchParams.get('category');
 
   const navItems = [
     {
       href: '/',
       label: 'Início',
-      active: pathname === '/' && !category,
+      active: pathname === '/',
       icon: Home,
     },
     {
-      href: '/?category=movie',
+      href: '/movies',
       label: 'Filmes',
-      active: category === 'movie',
+      active: pathname === '/movies' || pathname.startsWith('/movies/'),
       icon: Film,
     },
     {
-      href: '/?category=serie',
+      href: '/series',
       label: 'Séries',
-      active: category === 'serie',
+      active: pathname === '/series' || pathname.startsWith('/series/'),
       icon: Tv,
     },
     {

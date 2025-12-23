@@ -37,7 +37,17 @@ Superflix é uma plataforma de streaming em português brasileiro construída co
 
 ### Banco de Dados
 
-Usa `@vercel/postgres` com modo offline automático (fallback para memória quando `POSTGRES_URL` não está definido). Tabelas: `users`, `watch_history`, `favorites`, `system_settings`, `admin_logs`.
+Usa `@supabase/supabase-js` para conexao com Supabase PostgreSQL. Modo offline automatico (fallback para memoria quando variaveis do Supabase nao estao definidas).
+
+Tabelas: `users`, `watch_history`, `favorites`, `system_settings`, `admin_logs`.
+
+Variaveis necessarias:
+- `SUPABASE_URL` - URL do projeto Supabase
+- `SUPABASE_SERVICE_ROLE_KEY` - Chave de servico (servidor)
+- `NEXT_PUBLIC_SUPABASE_URL` - URL publica
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Chave publica
+
+Para criar tabelas via SQL direto: `npm run db:setup` (usa `POSTGRES_URL`)
 
 ### Providers de Contexto
 
@@ -50,11 +60,18 @@ Envolvidos em ordem via `src/components/Providers.tsx`:
 
 Use `@/*` para importar de `src/*` (configurado em tsconfig.json).
 
-## Variáveis de Ambiente
+## Variaveis de Ambiente
 
-- `NEXT_PUBLIC_TMDB_API_KEY` - Obrigatório para metadados de conteúdo
-- `POSTGRES_URL` - Conexão com banco (opcional, usa memória como fallback)
-- `JWT_SECRET` - Assinatura de tokens de auth (padrão para dev)
+### Obrigatorias
+- `NEXT_PUBLIC_TMDB_API_KEY` - Chave da API TMDB
+- `NEXT_PUBLIC_SUPABASE_URL` - URL publica do Supabase
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Chave publica do Supabase
+- `SUPABASE_URL` - URL do Supabase (servidor)
+- `SUPABASE_SERVICE_ROLE_KEY` - Chave de servico do Supabase
+- `JWT_SECRET` - Segredo JWT (usar SUPABASE_JWT_SECRET)
+
+### Opcionais
+- `POSTGRES_URL` - URL PostgreSQL direta (para scripts de setup)
 
 ## Estilização
 

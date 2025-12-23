@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       isAdmin: user.is_admin || false,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: 'Login realizado com sucesso',
       token,
       user: {
@@ -83,6 +83,17 @@ export async function POST(request: NextRequest) {
         isAdmin: user.is_admin || false,
       },
     });
+
+    // Set auth_token cookie for middleware authentication
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

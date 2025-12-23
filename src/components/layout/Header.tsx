@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,6 @@ import { ClearCacheButton } from '@/components/ui/ClearCacheButton';
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, logout } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,13 +19,11 @@ export function Header() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const category = searchParams.get('category');
-
   const navLinks = [
-    { href: '/', label: 'Início', active: pathname === '/' && !category },
-    { href: '/?category=movie', label: 'Filmes', active: category === 'movie' },
-    { href: '/?category=serie', label: 'Séries', active: category === 'serie' },
-    { href: '/?category=anime', label: 'Animes', active: category === 'anime' },
+    { href: '/', label: 'Início', active: pathname === '/' },
+    { href: '/movies', label: 'Filmes', active: pathname === '/movies' || pathname.startsWith('/movies/') },
+    { href: '/series', label: 'Séries', active: pathname === '/series' || pathname.startsWith('/series/') },
+    { href: '/anime', label: 'Animes', active: pathname === '/anime' || pathname.startsWith('/anime/') },
     { href: '/tv', label: 'TV ao Vivo', active: pathname === '/tv' },
   ];
 

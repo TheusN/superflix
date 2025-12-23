@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql, isOfflineMode, inMemoryData } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 
+interface UserRow {
+  id: number;
+  email: string;
+  name: string;
+  is_admin: boolean;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password, name } = await request.json();
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
         isAdmin: false,
       });
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         message: 'Usuário criado com sucesso',
         token,
         user: {
@@ -62,6 +69,17 @@ export async function POST(request: NextRequest) {
           isAdmin: false,
         },
       });
+
+      // Set auth_token cookie for middleware authentication
+      response.cookies.set('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      });
+
+      return response;
     }
 
     // Verificar se email já existe
@@ -83,14 +101,14 @@ export async function POST(request: NextRequest) {
       RETURNING id, email, name, is_admin
     `;
 
-    const user = result.rows[0];
+    const user = result.rows[0] as UserRow;
     const token = generateToken({
       userId: user.id,
       email: user.email,
       isAdmin: user.is_admin || false,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: 'Usuário criado com sucesso',
       token,
       user: {
@@ -100,6 +118,17 @@ export async function POST(request: NextRequest) {
         isAdmin: user.is_admin || false,
       },
     });
+
+    // Set auth_token cookie for middleware authentication
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('Register error:', error);
     return NextResponse.json(

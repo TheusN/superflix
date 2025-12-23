@@ -8,15 +8,15 @@ export function Footer() {
   const links = {
     navigation: [
       { href: '/', label: 'Início' },
-      { href: '/?category=movie', label: 'Filmes' },
-      { href: '/?category=serie', label: 'Séries' },
-      { href: '/?category=anime', label: 'Animes' },
+      { href: '/movies', label: 'Filmes' },
+      { href: '/series', label: 'Séries' },
+      { href: '/anime', label: 'Animes' },
       { href: '/tv', label: 'TV ao Vivo' },
     ],
     legal: [
-      { href: '#', label: 'Termos de Uso' },
-      { href: '#', label: 'Política de Privacidade' },
-      { href: '#', label: 'DMCA' },
+      { href: '/termos', label: 'Termos de Uso' },
+      { href: '/privacidade', label: 'Política de Privacidade' },
+      { href: '/dmca', label: 'DMCA' },
     ],
   };
 

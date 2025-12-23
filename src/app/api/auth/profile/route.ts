@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql, isOfflineMode, inMemoryData } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
+interface UserRow {
+  id: number;
+  email: string;
+  name: string;
+  is_admin: boolean;
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const authUser = await getCurrentUser(request);
@@ -53,7 +60,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const user = result.rows[0];
+    const user = result.rows[0] as UserRow;
 
     return NextResponse.json({
       message: 'Perfil atualizado com sucesso',

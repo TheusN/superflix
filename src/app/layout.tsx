@@ -36,6 +36,32 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" data-scroll-behavior="smooth">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Suprimir erros de console desnecessários
+              (function() {
+                const originalError = console.error;
+                const originalWarn = console.warn;
+                const suppress = ['attestation', 'topics', 'react devtools'];
+                function shouldSuppress(args) {
+                  const msg = args.map(a => String(a)).join(' ').toLowerCase();
+                  return suppress.some(s => msg.includes(s));
+                }
+                console.error = function(...args) {
+                  if (shouldSuppress(args)) return;
+                  return originalError.apply(console, args);
+                };
+                console.warn = function(...args) {
+                  if (shouldSuppress(args)) return;
+                  return originalWarn.apply(console, args);
+                };
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={poppins.className}>
         <Providers>
           {children}

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql, isOfflineMode, inMemoryData } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
+interface StatsRow {
+  total?: string;
+  active?: string;
+  new_today?: string;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser(request);
@@ -46,11 +52,14 @@ export async function GET(request: NextRequest) {
       `,
     ]);
 
+    const statsRow = usersStats.rows[0] as StatsRow | undefined;
+    const historyRow = historyStats.rows[0] as StatsRow | undefined;
+
     return NextResponse.json({
-      totalUsers: parseInt(usersStats.rows[0]?.total || '0'),
-      activeUsers: parseInt(usersStats.rows[0]?.active || '0'),
-      newUsersToday: parseInt(usersStats.rows[0]?.new_today || '0'),
-      totalWatchHistory: parseInt(historyStats.rows[0]?.total || '0'),
+      totalUsers: parseInt(statsRow?.total || '0'),
+      activeUsers: parseInt(statsRow?.active || '0'),
+      newUsersToday: parseInt(statsRow?.new_today || '0'),
+      totalWatchHistory: parseInt(historyRow?.total || '0'),
       recentUsers: recentUsers.rows,
     });
   } catch (error) {

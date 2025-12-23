@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql, isOfflineMode, inMemoryData } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
+interface CountRow {
+  total?: string;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser(request);
@@ -74,7 +78,8 @@ export async function GET(request: NextRequest) {
       countResult = await sql`SELECT COUNT(*) as total FROM users`;
     }
 
-    const total = parseInt(countResult.rows[0]?.total || '0');
+    const countRow = countResult.rows[0] as CountRow | undefined;
+    const total = parseInt(countRow?.total || '0');
 
     return NextResponse.json({
       users: result.rows,

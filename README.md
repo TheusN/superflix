@@ -248,13 +248,13 @@ Usamos [Conventional Commits](https://www.conventionalcommits.org/):
 
 ### Stack Principal
 
-| Tecnologia | Versão | Uso |
+| Tecnologia | Versao | Uso |
 |------------|--------|-----|
 | Next.js | 16 | Framework React com App Router |
 | React | 19 | Biblioteca de UI |
-| TypeScript | 5 | Tipagem estática |
-| Tailwind CSS | 4 | Estilização |
-| Vercel Postgres | - | Banco de dados |
+| TypeScript | 5 | Tipagem estatica |
+| Tailwind CSS | 4 | Estilizacao |
+| Supabase | - | Banco de dados PostgreSQL |
 
 ### APIs Utilizadas
 
@@ -278,75 +278,74 @@ Cliente → Next.js API → DNS over HTTPS (Cloudflare) → Conteúdo
 
 ---
 
-## 🗄️ Banco de Dados (Opcional)
+## Banco de Dados (Supabase)
 
-O Superflix pode funcionar **com ou sem banco de dados**:
+O Superflix usa **Supabase** como banco de dados PostgreSQL.
 
-### Sem Banco de Dados (Padrão)
-- Dados armazenados **em memória** (perdem ao reiniciar)
-- Histórico e favoritos salvos no **localStorage** do navegador
+### Sem Banco de Dados (Padrao)
+- Dados armazenados **em memoria** (perdem ao reiniciar)
+- Historico e favoritos salvos no **localStorage** do navegador
 - Ideal para testes e desenvolvimento local
 
-### Com Banco de Dados (Produção)
-- Dados **persistentes** no PostgreSQL
-- Sincronização entre dispositivos
-- Histórico de visualização
-- Favoritos do usuário
-- Sistema de contas/autenticação
+### Com Banco de Dados (Producao)
+- Dados **persistentes** no PostgreSQL via Supabase
+- Sincronizacao entre dispositivos
+- Historico de visualizacao
+- Favoritos do usuario
+- Sistema de contas/autenticacao
 - Painel administrativo
 
-### Configurando o PostgreSQL
-
-#### Opção 1: Vercel Postgres (Recomendado)
-
-1. Acesse o [Dashboard da Vercel](https://vercel.com/dashboard)
-2. Vá em **Storage** → **Create Database** → **Postgres**
-3. Copie a `POSTGRES_URL` gerada
-4. Adicione no seu `.env.local`:
-
-```env
-POSTGRES_URL="postgres://default:xxxxx@ep-xxx.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
-```
-
-#### Opção 2: Supabase (Gratuito)
+### Configurando o Supabase
 
 1. Crie uma conta em [supabase.com](https://supabase.com)
 2. Crie um novo projeto
-3. Vá em **Settings** → **Database** → **Connection string**
-4. Copie a URI e adicione no `.env.local`
+3. Obtenha as credenciais em **Settings > API** e **Settings > Database**
+4. Configure o `.env.local`:
 
-#### Opção 3: Outros Provedores
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL="https://seu-projeto.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="sua-anon-key"
+SUPABASE_URL="https://seu-projeto.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="sua-service-role-key"
+SUPABASE_JWT_SECRET="seu-jwt-secret"
 
-Qualquer PostgreSQL funciona:
-- [Railway](https://railway.app)
-- [Render](https://render.com)
-- [Neon](https://neon.tech)
-- [ElephantSQL](https://www.elephantsql.com)
-- Docker local
+# PostgreSQL (para scripts)
+POSTGRES_URL="postgres://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 
-### Tabelas Criadas Automaticamente
+# JWT
+JWT_SECRET="mesmo-valor-do-supabase-jwt-secret"
+```
 
-Ao conectar o banco, as seguintes tabelas são criadas:
+5. Crie as tabelas executando `database/schema.sql` no SQL Editor do Supabase
 
-| Tabela | Descrição |
+Veja mais detalhes em [database/README.md](database/README.md)
+
+### Tabelas
+
+| Tabela | Descricao |
 |--------|-----------|
-| `users` | Usuários registrados |
-| `watch_history` | Histórico de visualização |
-| `favorites` | Conteúdos favoritos |
-| `system_settings` | Configurações do sistema |
-| `admin_logs` | Logs de ações administrativas |
+| `users` | Usuarios registrados |
+| `watch_history` | Historico de visualizacao |
+| `favorites` | Conteudos favoritos |
+| `system_settings` | Configuracoes do sistema |
+| `admin_logs` | Logs de acoes administrativas |
 
 ---
 
-## 🔒 Segurança
+## Seguranca
 
-### Variáveis de Ambiente
+### Variaveis de Ambiente
 
-| Variável | Tipo | Exposição |
+| Variavel | Tipo | Exposicao |
 |----------|------|-----------|
-| `NEXT_PUBLIC_TMDB_API_KEY` | Pública | Exposta no cliente (normal para TMDB) |
-| `POSTGRES_URL` | Privada | **Nunca exposta** - apenas servidor |
+| `NEXT_PUBLIC_TMDB_API_KEY` | Publica | Exposta no cliente (normal para TMDB) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Publica | URL publica do Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publica | Chave publica do Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Privada | **Nunca exposta** - apenas servidor |
+| `SUPABASE_JWT_SECRET` | Privada | **Nunca exposta** - apenas servidor |
 | `JWT_SECRET` | Privada | **Nunca exposta** - apenas servidor |
+| `POSTGRES_URL` | Privada | **Nunca exposta** - apenas servidor |
 
 ### Boas Práticas
 
@@ -390,13 +389,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 2. Configure as variáveis de ambiente
 3. Deploy!
 
-### Variáveis na Vercel
+### Variaveis na Vercel
 
-| Variável | Obrigatório | Descrição |
+| Variavel | Obrigatorio | Descricao |
 |----------|-------------|-----------|
-| `NEXT_PUBLIC_TMDB_API_KEY` | ✅ | Chave da API TMDB |
-| `POSTGRES_URL` | ❌ | Connection string Postgres |
-| `JWT_SECRET` | ❌ | Segredo para tokens |
+| `NEXT_PUBLIC_TMDB_API_KEY` | Sim | Chave da API TMDB |
+| `NEXT_PUBLIC_SUPABASE_URL` | Sim | URL do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sim | Chave publica do Supabase |
+| `SUPABASE_URL` | Sim | URL do projeto Supabase (servidor) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Chave de servico do Supabase |
+| `SUPABASE_JWT_SECRET` | Sim | Segredo JWT do Supabase |
+| `JWT_SECRET` | Sim | Mesmo valor do SUPABASE_JWT_SECRET |
+| `POSTGRES_URL` | Opcional | URL PostgreSQL (para scripts) |
 
 ### Outras Plataformas
 
@@ -409,13 +413,14 @@ O Superflix funciona em qualquer plataforma que suporte Next.js:
 
 ---
 
-## 📜 Scripts Disponíveis
+## Scripts Disponiveis
 
 ```bash
 npm run dev      # Servidor de desenvolvimento
-npm run build    # Build de produção
-npm run start    # Iniciar produção
-npm run lint     # Verificar código
+npm run build    # Build de producao
+npm run start    # Iniciar producao
+npm run lint     # Verificar codigo
+npm run db:setup # Configurar banco de dados
 ```
 
 ---
