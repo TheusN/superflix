@@ -154,11 +154,16 @@ export const tmdb = {
 
 export const superflixApi = {
   // URL base sem proxy
+  // Filmes: usam IMDb ID (formato: tt1234567)
+  // Séries: usam TMDB ID
   getDirectUrl(type: 'movie' | 'tv', id: string, season?: number, episode?: number): string {
-    const baseUrl = 'https://superflixapi.run';
+    const baseUrl = 'https://superflixapi.buzz';
     if (type === 'movie') {
+      // Filmes precisam do IMDb ID com prefixo 'tt'
+      // Se já tem 'tt', usa diretamente; senão, assume que é TMDB ID e não vai funcionar
       return `${baseUrl}/filme/${id}`;
     }
+    // Séries usam TMDB ID
     return `${baseUrl}/serie/${id}/${season}/${episode}`;
   },
 

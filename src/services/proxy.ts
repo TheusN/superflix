@@ -29,15 +29,19 @@ export function getEmbedProxyUrl(url: string): string {
 
 /**
  * Gera URL do player SuperflixAPI com proxy
+ * Filmes: usam IMDb ID (formato: tt1234567)
+ * Séries: usam TMDB ID
  */
-export function getPlayerUrl(type: 'movie' | 'tv', tmdbId: number, season?: number, episode?: number): string {
-  const baseUrl = 'https://superflixapi.run';
+export function getPlayerUrl(type: 'movie' | 'tv', id: string | number, season?: number, episode?: number): string {
+  const baseUrl = 'https://superflixapi.buzz';
 
   let playerUrl: string;
   if (type === 'movie') {
-    playerUrl = `${baseUrl}/filme/${tmdbId}`;
+    // Filmes precisam do IMDb ID
+    playerUrl = `${baseUrl}/filme/${id}`;
   } else {
-    playerUrl = `${baseUrl}/serie/${tmdbId}/${season}/${episode}`;
+    // Séries usam TMDB ID
+    playerUrl = `${baseUrl}/serie/${id}/${season}/${episode}`;
   }
 
   // Para o player, usamos o proxy de embed

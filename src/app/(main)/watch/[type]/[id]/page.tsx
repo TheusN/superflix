@@ -73,10 +73,9 @@ export default function WatchPage() {
       setContent(details);
       setSimilar(similarRes.results || []);
 
-      // Get IMDB ID for movies
-      if (type === 'movie') {
-        const externalIds = await tmdb.getExternalIds('movie', id);
-        setImdbId(externalIds.imdb_id || null);
+      // Get IMDB ID for movies (already included in getDetails via append_to_response)
+      if (type === 'movie' && details.external_ids?.imdb_id) {
+        setImdbId(details.external_ids.imdb_id);
       }
 
       // Set initial season

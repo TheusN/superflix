@@ -4,7 +4,7 @@ export const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 export const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
 // SuperflixAPI
-export const SUPERFLIX_API_URL = 'https://superflixapi.run';
+export const SUPERFLIX_API_URL = 'https://superflixapi.buzz';
 
 // Image sizes
 export const IMAGE_SIZES = {
