@@ -42,7 +42,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get('url');
 
+  console.log('[Asset Proxy] ========== NOVA REQUISIÇÃO ==========');
+  console.log('[Asset Proxy] URL solicitada:', url);
+
   if (!url) {
+    console.log('[Asset Proxy] ERRO: URL não fornecida');
     return NextResponse.json({ error: 'URL é obrigatória' }, { status: 400 });
   }
 
@@ -79,19 +83,26 @@ export async function GET(request: NextRequest) {
   }
 
   if (!isAllowedDomain(url)) {
+    console.log('[Asset Proxy] ERRO: Domínio não permitido:', url);
     return NextResponse.json({ error: 'Domínio não permitido' }, { status: 403 });
   }
 
   try {
     const hostname = urlObj.hostname;
 
+    console.log('[Asset Proxy] Resolvendo DNS para:', hostname);
+
     // Resolver DNS via Cloudflare
     const resolvedIP = await resolveWithCloudflare(hostname);
     if (!resolvedIP) {
+      console.log('[Asset Proxy] ERRO: DNS falhou para:', hostname);
       return NextResponse.json({ error: 'DNS resolution failed' }, { status: 502 });
     }
 
+    console.log(`[Asset Proxy] DNS resolvido: ${hostname} -> ${resolvedIP}`);
+
     const result = await fetchWithResolvedDNS(url, resolvedIP);
+    console.log('[Asset Proxy] Resposta recebida - Status:', result.status);
 
     // Seguir redirects se necessário
     if (result.status >= 300 && result.status < 400 && result.redirect) {

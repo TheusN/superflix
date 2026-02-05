@@ -103,11 +103,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get('url');
 
+  console.log('[HLS Proxy] ========== NOVA REQUISIÇÃO ==========');
+  console.log('[HLS Proxy] URL solicitada:', url);
+
   if (!url) {
+    console.log('[HLS Proxy] ERRO: URL não fornecida');
     return NextResponse.json({ error: 'URL é obrigatória' }, { status: 400 });
   }
 
   if (!isAllowedDomain(url)) {
+    console.log('[HLS Proxy] ERRO: Domínio não permitido:', url);
     return NextResponse.json({ error: 'Domínio não permitido' }, { status: 403 });
   }
 
@@ -115,18 +120,24 @@ export async function GET(request: NextRequest) {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname;
 
+    console.log('[HLS Proxy] Resolvendo DNS para:', hostname);
+
     // Resolver DNS via Cloudflare
     const resolvedIP = await resolveWithCloudflare(hostname);
     if (!resolvedIP) {
-      console.error(`[HLS Proxy] DNS failed for: ${hostname}`);
+      console.error(`[HLS Proxy] ERRO: DNS falhou para: ${hostname}`);
       return NextResponse.json({ error: 'DNS resolution failed' }, { status: 502 });
     }
 
-    console.log(`[HLS Proxy] ${hostname} -> ${resolvedIP}`);
+    console.log(`[HLS Proxy] DNS resolvido: ${hostname} -> ${resolvedIP}`);
 
+    console.log('[HLS Proxy] Fazendo fetch com IP resolvido...');
     const result = await fetchWithResolvedDNS(url, resolvedIP, {
       referer: 'https://superflix.app/',
     });
+
+    console.log('[HLS Proxy] Resposta recebida - Status:', result.status);
+    console.log('[HLS Proxy] Tamanho do body:', result.body?.length || 0, 'bytes');
 
     // Seguir redirects
     if (result.status >= 300 && result.status < 400 && result.redirect) {

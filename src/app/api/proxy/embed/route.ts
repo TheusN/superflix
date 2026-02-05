@@ -444,11 +444,16 @@ async function fetchWithRedirects(url: string, referer: string, maxRedirects = 5
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get('url');
 
+  console.log('[Embed Proxy] ========== NOVA REQUISIÇÃO ==========');
+  console.log('[Embed Proxy] URL solicitada:', url);
+
   if (!url) {
+    console.log('[Embed Proxy] ERRO: URL não fornecida');
     return NextResponse.json({ error: 'URL é obrigatória' }, { status: 400 });
   }
 
   if (!isAllowedDomain(url)) {
+    console.log('[Embed Proxy] ERRO: Domínio não permitido:', url);
     return NextResponse.json({ error: 'Domínio não permitido' }, { status: 403 });
   }
 
@@ -457,13 +462,19 @@ export async function GET(request: NextRequest) {
     const requestReferer = request.headers.get('referer') || request.headers.get('origin');
     const referer = requestReferer || `https://${request.headers.get('host') || 'superflix.app'}/`;
 
+    console.log('[Embed Proxy] Buscando conteúdo com referer:', referer);
     const result = await fetchWithRedirects(url, referer);
 
     if (!result) {
+      console.log('[Embed Proxy] ERRO: fetchWithRedirects retornou null');
       return NextResponse.json({ error: 'Erro ao acessar o conteúdo' }, { status: 502 });
     }
 
+    console.log('[Embed Proxy] Resposta recebida - Status:', result.status);
+    console.log('[Embed Proxy] Tamanho do body:', result.body?.length || 0, 'bytes');
+
     if (result.status !== 200) {
+      console.log('[Embed Proxy] ERRO: Status não-200:', result.status);
       return NextResponse.json(
         { error: `Servidor retornou status ${result.status}` },
         { status: result.status }
