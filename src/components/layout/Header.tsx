@@ -1,12 +1,24 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-import { Search, User, LogOut, Settings, ChevronDown, Trash2 } from 'lucide-react';
+import { Search, User, LogOut, Settings, ChevronDown, Film, Tv, Loader2 } from 'lucide-react';
 import { ClearCacheButton } from '@/components/ui/ClearCacheButton';
+import { tmdb } from '@/services/tmdb';
+
+interface SearchSuggestion {
+  id: number;
+  title: string;
+  media_type: 'movie' | 'tv';
+  poster_path: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average?: number;
+}
 
 export function Header() {
   const pathname = usePathname();
@@ -14,10 +26,15 @@ export function Header() {
   const { user, logout } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const navLinks = [
     { href: '/', label: 'Início', active: pathname === '/' },
@@ -25,6 +42,7 @@ export function Header() {
     { href: '/series', label: 'Séries', active: pathname === '/series' || pathname.startsWith('/series/') },
     { href: '/anime', label: 'Animes', active: pathname === '/anime' || pathname.startsWith('/anime/') },
     { href: '/tv', label: 'TV ao Vivo', active: pathname === '/tv' },
+    { href: '/calendario', label: 'Calendário', active: pathname === '/calendario' },
   ];
 
   useEffect(() => {
@@ -56,6 +74,7 @@ export function Header() {
       if (e.key === 'Escape') {
         setSearchOpen(false);
         setSearchQuery('');
+        setSuggestions([]);
       }
     };
     if (searchOpen) {
@@ -64,13 +83,97 @@ export function Header() {
     }
   }, [searchOpen]);
 
+  // Buscar sugestoes com debounce
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (query.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    setIsLoadingSuggestions(true);
+    try {
+      const data = await tmdb.search(query);
+      const filtered = data.results
+        .filter((item) => item.media_type === 'movie' || item.media_type === 'tv')
+        .slice(0, 8)
+        .map((item) => ({
+          id: item.id,
+          title: item.title || item.name || '',
+          media_type: item.media_type as 'movie' | 'tv',
+          poster_path: item.poster_path,
+          release_date: item.release_date,
+          first_air_date: item.first_air_date,
+          vote_average: item.vote_average,
+        }));
+      setSuggestions(filtered);
+      setSelectedIndex(-1);
+    } catch (error) {
+      console.error('Erro ao buscar sugestoes:', error);
+      setSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  }, []);
+
+  // Debounce da busca
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    if (searchQuery.length >= 3) {
+      debounceRef.current = setTimeout(() => {
+        fetchSuggestions(searchQuery);
+      }, 300);
+    } else {
+      setSuggestions([]);
+    }
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [searchQuery, fetchSuggestions]);
+
+  // Navegacao por teclado nas sugestoes
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+      e.preventDefault();
+      goToContent(suggestions[selectedIndex]);
+    }
+  };
+
+  // Ir para pagina do conteudo
+  const goToContent = (item: SearchSuggestion) => {
+    router.push(`/watch/${item.media_type}/${item.id}`);
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSuggestions([]);
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchOpen(false);
       setSearchQuery('');
+      setSuggestions([]);
     }
+  };
+
+  // Formatar ano
+  const getYear = (item: SearchSuggestion) => {
+    const date = item.release_date || item.first_air_date;
+    return date ? new Date(date).getFullYear() : null;
   };
 
   return (
@@ -230,7 +333,10 @@ export function Header() {
       {searchOpen && (
         <div
           className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl animate-fade-in"
-          onClick={() => setSearchOpen(false)}
+          onClick={() => {
+            setSearchOpen(false);
+            setSuggestions([]);
+          }}
         >
           <div
             className="max-w-2xl mx-auto pt-32 px-6"
@@ -248,18 +354,98 @@ export function Header() {
                 placeholder="Buscar filmes, séries, animes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
                 className={cn(
-                  'w-full pl-16 pr-6 py-5 text-lg',
-                  'bg-[var(--bg-elevated)] rounded-2xl',
+                  'w-full pl-16 pr-12 py-5 text-lg',
+                  'bg-[var(--bg-elevated)]',
+                  suggestions.length > 0 ? 'rounded-t-2xl rounded-b-none' : 'rounded-2xl',
                   'text-white placeholder-[var(--text-tertiary)]',
                   'border border-[var(--border-color)]',
+                  suggestions.length > 0 && 'border-b-0',
                   'focus:outline-none focus:border-white/30',
                   'transition-colors'
                 )}
               />
+              {isLoadingSuggestions && (
+                <Loader2
+                  size={20}
+                  className="absolute right-6 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] animate-spin"
+                />
+              )}
             </form>
+
+            {/* Sugestoes */}
+            {suggestions.length > 0 && (
+              <div
+                ref={suggestionsRef}
+                className="bg-[var(--bg-elevated)] border border-[var(--border-color)] border-t-0 rounded-b-2xl overflow-hidden"
+              >
+                {suggestions.map((item, index) => (
+                  <button
+                    key={`${item.media_type}-${item.id}`}
+                    onClick={() => goToContent(item)}
+                    className={cn(
+                      'w-full flex items-center gap-4 px-4 py-3 text-left transition-colors',
+                      'hover:bg-white/10',
+                      selectedIndex === index && 'bg-white/10'
+                    )}
+                  >
+                    {/* Poster */}
+                    <div className="w-12 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-[var(--bg-tertiary)]">
+                      {item.poster_path ? (
+                        <Image
+                          src={tmdb.getImageUrl(item.poster_path, 'w92')}
+                          alt={item.title}
+                          width={48}
+                          height={64}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          {item.media_type === 'movie' ? (
+                            <Film size={20} className="text-[var(--text-tertiary)]" />
+                          ) : (
+                            <Tv size={20} className="text-[var(--text-tertiary)]" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium truncate">{item.title}</p>
+                      <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                        <span className={cn(
+                          'px-1.5 py-0.5 rounded text-xs font-medium',
+                          item.media_type === 'movie' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+                        )}>
+                          {item.media_type === 'movie' ? 'Filme' : 'Série'}
+                        </span>
+                        {getYear(item) && <span>{getYear(item)}</span>}
+                        {item.vote_average && item.vote_average > 0 && (
+                          <span className="text-yellow-500">★ {item.vote_average.toFixed(1)}</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Ver todos os resultados */}
+                <button
+                  onClick={handleSearch}
+                  className="w-full py-3 text-center text-sm text-[var(--text-secondary)] hover:text-white hover:bg-white/5 transition-colors border-t border-[var(--border-color)]"
+                >
+                  Ver todos os resultados para "{searchQuery}"
+                </button>
+              </div>
+            )}
+
             <p className="text-center text-sm text-[var(--text-tertiary)] mt-6">
-              Pressione <kbd className="px-2 py-1 bg-[var(--bg-tertiary)] rounded-lg text-xs font-medium">ESC</kbd> para fechar
+              {searchQuery.length < 3 ? (
+                <>Digite pelo menos <strong>3 caracteres</strong> para buscar</>
+              ) : (
+                <>Pressione <kbd className="px-2 py-1 bg-[var(--bg-tertiary)] rounded-lg text-xs font-medium">ESC</kbd> para fechar</>
+              )}
             </p>
           </div>
         </div>

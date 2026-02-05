@@ -291,7 +291,8 @@ Usamos [Conventional Commits](https://www.conventionalcommits.org/):
 | React | 19 | Biblioteca de UI |
 | TypeScript | 5 | Tipagem estatica |
 | Tailwind CSS | 4 | Estilizacao |
-| Supabase | - | Banco de dados PostgreSQL |
+| PostgreSQL | - | Banco de dados (conexão direta) |
+| JWT | - | Autenticação |
 
 ### APIs Utilizadas
 
@@ -315,9 +316,9 @@ Cliente → Next.js API → DNS over HTTPS (Cloudflare) → Conteúdo
 
 ---
 
-## Banco de Dados (Supabase)
+## Banco de Dados (PostgreSQL)
 
-O Superflix usa **Supabase** como banco de dados PostgreSQL.
+O Superflix usa **PostgreSQL** com conexao direta (sem ORM ou Supabase).
 
 ### Sem Banco de Dados (Padrao)
 - Dados armazenados **em memoria** (perdem ao reiniciar)
@@ -325,36 +326,33 @@ O Superflix usa **Supabase** como banco de dados PostgreSQL.
 - Ideal para testes e desenvolvimento local
 
 ### Com Banco de Dados (Producao)
-- Dados **persistentes** no PostgreSQL via Supabase
+- Dados **persistentes** no PostgreSQL
 - Sincronizacao entre dispositivos
-- Historico de visualizacao
+- Historico de visualizacao (filmes, series, TV)
 - Favoritos do usuario
-- Sistema de contas/autenticacao
+- Sistema de contas/autenticacao com JWT
 - Painel administrativo
 
-### Configurando o Supabase
+### Configurando o PostgreSQL
 
-1. Crie uma conta em [supabase.com](https://supabase.com)
-2. Crie um novo projeto
-3. Obtenha as credenciais em **Settings > API** e **Settings > Database**
-4. Configure o `.env.local`:
+1. Tenha um servidor PostgreSQL disponivel (local, Docker, ou servico como Railway, Render, etc)
+2. Configure o `.env.local`:
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL="https://seu-projeto.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="sua-anon-key"
-SUPABASE_URL="https://seu-projeto.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="sua-service-role-key"
-SUPABASE_JWT_SECRET="seu-jwt-secret"
+# PostgreSQL - URL de conexao completa
+POSTGRES_URL="postgres://usuario:senha@host:5432/database"
 
-# PostgreSQL (para scripts)
-POSTGRES_URL="postgres://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
-
-# JWT
-JWT_SECRET="mesmo-valor-do-supabase-jwt-secret"
+# JWT - Segredo para tokens de autenticacao
+JWT_SECRET="seu_segredo_super_secreto_minimo_32_caracteres"
 ```
 
-5. Crie as tabelas executando `database/schema.sql` no SQL Editor do Supabase
+3. Execute o script de setup para criar as tabelas:
+
+```bash
+npm run db:setup
+# ou
+node database/setup.js
+```
 
 Veja mais detalhes em [database/README.md](database/README.md)
 
@@ -363,8 +361,10 @@ Veja mais detalhes em [database/README.md](database/README.md)
 | Tabela | Descricao |
 |--------|-----------|
 | `users` | Usuarios registrados |
-| `watch_history` | Historico de visualizacao |
-| `favorites` | Conteudos favoritos |
+| `watch_history` | Historico de filmes e series |
+| `favorites` | Favoritos de filmes e series |
+| `tv_favorites` | Canais de TV favoritos |
+| `tv_history` | Historico de canais assistidos |
 | `system_settings` | Configuracoes do sistema |
 | `admin_logs` | Logs de acoes administrativas |
 
@@ -377,10 +377,6 @@ Veja mais detalhes em [database/README.md](database/README.md)
 | Variavel | Tipo | Exposicao |
 |----------|------|-----------|
 | `NEXT_PUBLIC_TMDB_API_KEY` | Publica | Exposta no cliente (normal para TMDB) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Publica | URL publica do Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publica | Chave publica do Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Privada | **Nunca exposta** - apenas servidor |
-| `SUPABASE_JWT_SECRET` | Privada | **Nunca exposta** - apenas servidor |
 | `JWT_SECRET` | Privada | **Nunca exposta** - apenas servidor |
 | `POSTGRES_URL` | Privada | **Nunca exposta** - apenas servidor |
 
@@ -431,13 +427,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | Variavel | Obrigatorio | Descricao |
 |----------|-------------|-----------|
 | `NEXT_PUBLIC_TMDB_API_KEY` | Sim | Chave da API TMDB |
-| `NEXT_PUBLIC_SUPABASE_URL` | Sim | URL do projeto Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sim | Chave publica do Supabase |
-| `SUPABASE_URL` | Sim | URL do projeto Supabase (servidor) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Chave de servico do Supabase |
-| `SUPABASE_JWT_SECRET` | Sim | Segredo JWT do Supabase |
-| `JWT_SECRET` | Sim | Mesmo valor do SUPABASE_JWT_SECRET |
-| `POSTGRES_URL` | Opcional | URL PostgreSQL (para scripts) |
+| `POSTGRES_URL` | Sim | URL de conexao PostgreSQL |
+| `JWT_SECRET` | Sim | Segredo para tokens JWT (min. 32 caracteres) |
 
 ### Outras Plataformas
 
