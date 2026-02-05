@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { tmdb } from '@/services/tmdb';
 import { HeroSection, SkeletonHero } from '@/components/content/HeroSection';
 import { CategoryRow, SkeletonRow } from '@/components/content/CategoryRow';
+import { ContinueWatchingRow } from '@/components/content/ContinueWatchingRow';
 import type { Content } from '@/types/content';
 
 interface HomeData {
@@ -87,6 +88,9 @@ export default function HomePage() {
 
       {/* Content Rows - overlap hero slightly */}
       <div className="relative z-10 -mt-24 space-y-2 pb-24">
+        {/* Continuar Assistindo - so aparece se logado e com itens */}
+        <ContinueWatchingRow />
+
         {/* Trending with backdrop cards */}
         <CategoryRow
           title="Em Alta"

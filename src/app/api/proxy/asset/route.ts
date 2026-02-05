@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWithCloudflare, fetchWithResolvedDNS } from '@/lib/dns-resolver';
 
-// Domínios permitidos para assets
+// Dominios permitidos para assets
 const ALLOWED_ASSET_DOMAINS = [
+  'superflixapi.cv',
   'superflixapi.run',
   'superflixapi.buzz',
   'superflixapi.top',
   'embedtv.best',
   'www1.embedtv.best',
-  // Subdomínios de stream
+  // Subdominios de stream
+  'cdn.superflixapi.cv',
+  'stream.superflixapi.cv',
   'cdn.superflixapi.run',
   'stream.superflixapi.run',
   'cdn.embedtv.best',
@@ -17,7 +20,7 @@ const ALLOWED_ASSET_DOMAINS = [
   'cdn.jsdelivr.net',
   'cdnjs.cloudflare.com',
   'unpkg.com',
-  // CDNs de vídeo/stream comuns
+  // CDNs de video/stream comuns
   'akamaihd.net',
   'cloudfront.net',
   'fastly.net',

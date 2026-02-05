@@ -12,6 +12,7 @@ import { CategoryRow } from '@/components/content/CategoryRow';
 import { SkeletonPlayer } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { saveProgressLocal, markAsCompleted, initWatchProgress, syncToServer } from '@/services/watchProgress';
 import {
   Play,
   Star,
@@ -59,6 +60,11 @@ export default function WatchPage() {
     if (type === 'tv') {
       const newUrl = `/watch/tv/${id}?s=${selectedSeason}&e=${selectedEpisode}`;
       window.history.replaceState(null, '', newUrl);
+
+      // Salvar novo episodio no historico quando mudar
+      if (content) {
+        saveToHistory(content, 0.1);
+      }
     }
   }, [selectedSeason, selectedEpisode]);
 
@@ -86,10 +92,8 @@ export default function WatchPage() {
         }
       }
 
-      // Save to history
-      if (user) {
-        saveToHistory(details);
-      }
+      // Salvar no historico (localStorage + servidor se logado)
+      saveToHistory(details, 0.1);
     } catch (error) {
       console.error('Error loading content:', error);
     } finally {
@@ -106,22 +110,40 @@ export default function WatchPage() {
     }
   };
 
-  const saveToHistory = async (contentData: ContentDetails) => {
-    try {
-      await fetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tmdb_id: contentData.id,
-          title: contentData.title || contentData.name,
-          poster_path: contentData.poster_path,
-          media_type: type,
-          season: type === 'tv' ? selectedSeason : null,
-          episode: type === 'tv' ? selectedEpisode : null,
-        }),
+  // Inicializar servico de progresso
+  useEffect(() => {
+    initWatchProgress();
+
+    // Sincronizar ao sair da pagina
+    return () => {
+      syncToServer(true);
+    };
+  }, []);
+
+  const saveToHistory = (contentData: ContentDetails, progress: number = 0.1) => {
+    // Salvar localmente (rapido) - sincroniza com servidor automaticamente
+    saveProgressLocal({
+      tmdb_id: contentData.id,
+      title: contentData.title || contentData.name || 'Sem titulo',
+      poster_path: contentData.poster_path,
+      media_type: type,
+      season: type === 'tv' ? selectedSeason : null,
+      episode: type === 'tv' ? selectedEpisode : null,
+      progress,
+    });
+  };
+
+  // Marcar episodio atual como concluido ao mudar
+  const markAsWatchedLocal = () => {
+    if (content) {
+      markAsCompleted({
+        tmdb_id: content.id,
+        title: content.title || content.name || 'Sem titulo',
+        poster_path: content.poster_path,
+        media_type: type,
+        season: type === 'tv' ? selectedSeason : null,
+        episode: type === 'tv' ? selectedEpisode : null,
       });
-    } catch (error) {
-      console.error('Error saving to history:', error);
     }
   };
 
@@ -134,6 +156,8 @@ export default function WatchPage() {
       (ep) => ep.episode_number === selectedEpisode
     );
     if (currentIndex < episodes.length - 1) {
+      // Marcar episodio atual como assistido antes de ir para o proximo
+      markAsWatchedLocal();
       setSelectedEpisode(episodes[currentIndex + 1].episode_number);
     }
   };

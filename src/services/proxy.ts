@@ -33,7 +33,7 @@ export function getEmbedProxyUrl(url: string): string {
  * Séries: usam TMDB ID
  */
 export function getPlayerUrl(type: 'movie' | 'tv', id: string | number, season?: number, episode?: number): string {
-  const baseUrl = 'https://superflixapi.buzz';
+  const baseUrl = 'https://superflixapi.cv';
 
   let playerUrl: string;
   if (type === 'movie') {

@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, isOfflineMode, inMemoryData } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, verifyToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    // Tentar autenticar via header primeiro, depois via body (para sendBeacon)
+    let user = await getCurrentUser(request);
+
+    const body = await request.json();
+    const { items, token } = body;
+
+    // Se nao autenticou via header, tentar via token no body (sendBeacon)
+    if (!user && token) {
+      user = verifyToken(token);
     }
 
-    const { items } = await request.json();
+    if (!user) {
+      return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 });
+    }
 
     if (!Array.isArray(items)) {
       return NextResponse.json({ error: 'Items deve ser um array' }, { status: 400 });

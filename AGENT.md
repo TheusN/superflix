@@ -39,17 +39,14 @@ Superflix é uma plataforma de streaming em português brasileiro construída co
 
 ### Banco de Dados
 
-Usa `@supabase/supabase-js` para conexao com Supabase PostgreSQL. Modo offline automatico (fallback para memoria quando variaveis do Supabase nao estao definidas).
+Usa `pg` (node-postgres) para conexao direta com PostgreSQL. Modo offline automatico (fallback para memoria quando POSTGRES_URL nao esta definida).
 
 Tabelas: `users`, `watch_history`, `favorites`, `system_settings`, `admin_logs`.
 
-Variaveis necessarias:
-- `SUPABASE_URL` - URL do projeto Supabase
-- `SUPABASE_SERVICE_ROLE_KEY` - Chave de servico (servidor)
-- `NEXT_PUBLIC_SUPABASE_URL` - URL publica
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Chave publica
+Variavel necessaria:
+- `POSTGRES_URL` - String de conexao PostgreSQL (ex: `postgres://user:pass@host:port/db?sslmode=disable`)
 
-Para criar tabelas via SQL direto: `npm run db:setup` (usa `POSTGRES_URL`)
+Para criar tabelas: `npm run db:setup`
 
 ### Providers de Contexto
 
@@ -66,14 +63,11 @@ Use `@/*` para importar de `src/*` (configurado em tsconfig.json).
 
 ### Obrigatorias
 - `NEXT_PUBLIC_TMDB_API_KEY` - Chave da API TMDB
-- `NEXT_PUBLIC_SUPABASE_URL` - URL publica do Supabase
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Chave publica do Supabase
-- `SUPABASE_URL` - URL do Supabase (servidor)
-- `SUPABASE_SERVICE_ROLE_KEY` - Chave de servico do Supabase
-- `JWT_SECRET` - Segredo JWT (usar SUPABASE_JWT_SECRET)
+- `POSTGRES_URL` - String de conexao PostgreSQL
+- `JWT_SECRET` - Segredo para assinar tokens JWT
 
 ### Opcionais
-- `POSTGRES_URL` - URL PostgreSQL direta (para scripts de setup)
+- `NEXT_PUBLIC_BASE_URL` - URL base da aplicacao
 
 ## Estilização
 

@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWithCloudflare, fetchWithResolvedDNS } from '@/lib/dns-resolver';
 
-// Domínios permitidos para HLS
+// Dominios permitidos para HLS
 const ALLOWED_HLS_DOMAINS = [
+  'superflixapi.cv',
   'superflixapi.run',
   'superflixapi.buzz',
   'superflixapi.top',
   'embedtv.best',
   'www1.embedtv.best',
+  'cdn.superflixapi.cv',
+  'stream.superflixapi.cv',
   'cdn.superflixapi.run',
   'stream.superflixapi.run',
 ];

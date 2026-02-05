@@ -1,79 +1,61 @@
 # Configuracao do Banco de Dados - Superflix
 
-Este guia explica como configurar o banco de dados Supabase para o Superflix.
+Este guia explica como configurar o banco de dados PostgreSQL para o Superflix.
 
 ## Pre-requisitos
 
 - Node.js 18+
-- Conta no [Supabase](https://supabase.com) (gratuito)
+- Servidor PostgreSQL (local ou remoto)
 
 ## Configuracao Rapida
 
-### 1. Criar Projeto no Supabase
+### 1. Obter String de Conexao
 
-1. Acesse [supabase.com](https://supabase.com) e crie uma conta
-2. Clique em **New Project**
-3. Escolha um nome e senha para o banco
-4. Aguarde o projeto ser criado (1-2 minutos)
+Voce precisa de uma URL de conexao PostgreSQL no formato:
 
-### 2. Obter Credenciais
+```
+postgres://usuario:senha@host:porta/banco?sslmode=disable
+```
 
-Apos criar o projeto, obtenha as credenciais:
+Exemplos:
+- Local: `postgres://postgres:senha@localhost:5432/superflix`
+- Remoto: `postgres://user:pass@servidor.com:5432/superflix_db?sslmode=disable`
 
-#### API Keys (Settings > API)
-- **Project URL** - `https://xxxxx.supabase.co`
-- **anon/public key** - Chave publica para o cliente
-- **service_role key** - Chave privada para o servidor (NUNCA exponha!)
-
-#### Database (Settings > Database)
-- **Connection string (URI)** - URL do PostgreSQL
-
-### 3. Configurar Variaveis de Ambiente
+### 2. Configurar Variaveis de Ambiente
 
 Crie ou edite o arquivo `.env.local` na raiz do projeto:
 
 ```env
 # =============================================
-# SUPABASE - Configuracoes Principais
+# POSTGRESQL - Conexao Direta
 # =============================================
-NEXT_PUBLIC_SUPABASE_URL="https://seu-projeto.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-SUPABASE_URL="https://seu-projeto.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-SUPABASE_JWT_SECRET="seu-jwt-secret-do-supabase"
-
-# =============================================
-# POSTGRES - Conexao Direta (para scripts)
-# =============================================
-POSTGRES_URL="postgres://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+POSTGRES_URL="postgres://usuario:senha@host:porta/banco?sslmode=disable"
 
 # =============================================
 # JWT - Autenticacao
 # =============================================
-JWT_SECRET="use-o-mesmo-jwt-secret-do-supabase"
+JWT_SECRET="sua-chave-secreta-jwt-aqui"
 
 # =============================================
 # TMDB API
 # =============================================
 NEXT_PUBLIC_TMDB_API_KEY="sua-chave-tmdb"
+
+# =============================================
+# Base URL (Opcional)
+# =============================================
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 ```
 
-### 4. Criar Tabelas no Supabase
+### 3. Criar Tabelas
 
-#### Opcao A: Via SQL Editor (Recomendado)
-
-1. Acesse o dashboard do Supabase
-2. Va em **SQL Editor**
-3. Cole o conteudo de `database/schema.sql`
-4. Clique em **Run**
-
-#### Opcao B: Via Script Node.js
+Execute o script de setup:
 
 ```bash
 npm run db:setup
 ```
 
-Este script usa conexao direta com PostgreSQL para criar as tabelas.
+Este script cria todas as tabelas e um usuario admin padrao.
 
 ## Usuario Admin Padrao
 
@@ -171,86 +153,50 @@ CREATE TABLE admin_logs (
 );
 ```
 
-## Deploy na Vercel
+## Deploy
 
-### 1. Conectar Repositorio
+### Variaveis de Ambiente
 
-1. Acesse [vercel.com](https://vercel.com)
-2. Importe seu repositorio do GitHub
-3. Configure as variaveis de ambiente
-
-### 2. Variaveis de Ambiente na Vercel
-
-Adicione TODAS as variaveis abaixo em **Settings > Environment Variables**:
+Adicione as variaveis abaixo no seu ambiente de producao:
 
 | Variavel | Obrigatorio | Descricao |
 |----------|-------------|-----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Sim | URL do projeto Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sim | Chave publica do Supabase |
-| `SUPABASE_URL` | Sim | URL do projeto Supabase (servidor) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Chave de servico do Supabase |
-| `SUPABASE_JWT_SECRET` | Sim | Segredo JWT do Supabase |
-| `JWT_SECRET` | Sim | Mesmo valor do SUPABASE_JWT_SECRET |
-| `POSTGRES_URL` | Opcional | URL PostgreSQL (para scripts) |
+| `POSTGRES_URL` | Sim | String de conexao PostgreSQL |
+| `JWT_SECRET` | Sim | Chave secreta para tokens JWT |
 | `NEXT_PUBLIC_TMDB_API_KEY` | Sim | Chave da API TMDB |
-
-### 3. Deploy
-
-Apos configurar as variaveis, faca o deploy:
-
-```bash
-git push origin main
-```
-
-A Vercel fara o build e deploy automaticamente.
+| `NEXT_PUBLIC_BASE_URL` | Nao | URL base da aplicacao |
 
 ## Problemas Comuns
 
 ### Erro: "Database offline"
 
-Verifique se as variaveis `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estao configuradas corretamente.
+Verifique se a variavel `POSTGRES_URL` esta configurada corretamente no `.env.local`.
 
 ### Erro: "relation does not exist"
 
-As tabelas nao foram criadas. Execute o SQL em `database/schema.sql` no SQL Editor do Supabase.
+As tabelas nao foram criadas. Execute `npm run db:setup` ou o SQL em `database/schema.sql`.
 
-### Erro: "permission denied"
+### Erro de conexao SSL
 
-Verifique se esta usando a `SUPABASE_SERVICE_ROLE_KEY` (nao a `anon key`) para operacoes do servidor.
+Se seu servidor nao usa SSL, adicione `?sslmode=disable` no final da URL de conexao.
 
-### Erro de conexao no script setup.js
+### Erro: "password authentication failed"
 
-O script `database/setup.js` usa conexao direta com PostgreSQL. Certifique-se de que:
-1. `POSTGRES_URL` esta configurada
-2. O IP do seu computador esta liberado no Supabase (ou use a URL com pooler)
+Verifique se o usuario e senha na URL de conexao estao corretos.
 
 ## Arquivos
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `database/setup.js` | Script para criar tabelas via PostgreSQL |
+| `database/setup.js` | Script para criar tabelas |
 | `database/schema.sql` | Schema SQL completo |
 | `database/README.md` | Este arquivo |
-| `src/lib/db.ts` | Cliente de banco usando Supabase JS SDK |
+| `src/lib/db.ts` | Cliente de banco usando pg |
 
 ## Seguranca
 
-- Nunca compartilhe `SUPABASE_SERVICE_ROLE_KEY`
+- Nunca compartilhe sua `POSTGRES_URL` ou `JWT_SECRET`
 - Nunca exponha variaveis sem `NEXT_PUBLIC_` no cliente
 - Altere a senha do admin padrao em producao
 - Use HTTPS em producao
 - O `.env.local` esta no `.gitignore`
-
-## Arquitetura
-
-O Superflix usa duas formas de acessar o banco:
-
-1. **Supabase JS SDK** (`@supabase/supabase-js`)
-   - Usado pelas API routes do Next.js
-   - Funciona via HTTP/REST
-   - Compativel com Turbopack/Edge
-
-2. **PostgreSQL Direto** (`pg`)
-   - Usado pelo script `database/setup.js`
-   - Conexao TCP direta
-   - Para operacoes de setup/migracao

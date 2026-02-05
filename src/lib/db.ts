@@ -1,9 +1,12 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Pool, PoolClient } from 'pg';
 
-// Verificar se está em modo offline (sem configuração do Supabase)
-const isOfflineMode = !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
+// URL de conexao do PostgreSQL
+const DATABASE_URL = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
-// Interface para QueryResult compatível
+// Verificar se esta em modo offline (sem configuracao do banco)
+const isOfflineMode = !DATABASE_URL;
+
+// Interface para QueryResult compativel
 interface QueryResult<T = unknown> {
   rows: T[];
   rowCount: number | null;
@@ -46,7 +49,7 @@ interface Favorite {
   added_at: Date;
 }
 
-// Dados em memória para modo offline
+// Dados em memoria para modo offline
 const inMemoryData = {
   users: [] as User[],
   watchHistory: [] as WatchHistoryItem[],
@@ -54,26 +57,28 @@ const inMemoryData = {
   settings: new Map<string, string>(),
 };
 
-// Cliente Supabase para o servidor (com service role key para acesso total)
-let supabaseAdmin: SupabaseClient | null = null;
+// Pool de conexoes PostgreSQL
+let pool: Pool | null = null;
 
-function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseAdmin && !isOfflineMode) {
-    supabaseAdmin = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
+function getPool(): Pool {
+  if (!pool && !isOfflineMode) {
+    pool = new Pool({
+      connectionString: DATABASE_URL,
+      ssl: DATABASE_URL?.includes('sslmode=disable') ? false : { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
+
+    // Log de erros do pool
+    pool.on('error', (err) => {
+      console.error('Erro inesperado no pool do PostgreSQL:', err);
+    });
   }
-  return supabaseAdmin!;
+  return pool!;
 }
 
-// Função de query genérica usando Supabase RPC ou SQL direto
+// Funcao de query generica usando pg
 export async function query<T = unknown>(
   text: string,
   params?: unknown[]
@@ -83,105 +88,21 @@ export async function query<T = unknown>(
     return { rows: [] as T[], rowCount: null } as QueryResult<T>;
   }
 
-  const supabase = getSupabaseAdmin();
+  const client = getPool();
 
   try {
-    // Substituir placeholders $1, $2, etc pelos valores reais
-    let queryText = text;
-    if (params && params.length > 0) {
-      params.forEach((param, index) => {
-        const placeholder = `$${index + 1}`;
-        let value: string;
-
-        if (param === null) {
-          value = 'NULL';
-        } else if (typeof param === 'string') {
-          // Escapar aspas simples
-          value = `'${param.replace(/'/g, "''")}'`;
-        } else if (typeof param === 'boolean') {
-          value = param ? 'TRUE' : 'FALSE';
-        } else if (param instanceof Date) {
-          value = `'${param.toISOString()}'`;
-        } else {
-          value = String(param);
-        }
-
-        queryText = queryText.replace(placeholder, value);
-      });
-    }
-
-    // Executar query via RPC do Supabase
-    const { data, error } = await supabase.rpc('exec_sql', {
-      query: queryText,
-    });
-
-    if (error) {
-      // Se a função RPC não existir, tentar via fetch direto
-      if (error.code === 'PGRST202' || error.message.includes('function') || error.message.includes('exec_sql')) {
-        // Fallback: usar a REST API diretamente para operações simples
-        return await executeDirectQuery<T>(queryText);
-      }
-      throw error;
-    }
-
-    return { rows: (data || []) as T[], rowCount: data?.length || 0 };
+    const result = await client.query(text, params);
+    return {
+      rows: result.rows as T[],
+      rowCount: result.rowCount,
+    };
   } catch (error) {
     console.error('Database error:', error);
     throw error;
   }
 }
 
-// Executar query diretamente via tabelas do Supabase
-async function executeDirectQuery<T>(queryText: string): Promise<QueryResult<T>> {
-  const supabase = getSupabaseAdmin();
-
-  // Parse simples da query para determinar a operação
-  const trimmedQuery = queryText.trim().toUpperCase();
-
-  if (trimmedQuery.startsWith('SELECT')) {
-    // Extrair nome da tabela e condições
-    const fromMatch = queryText.match(/FROM\s+(\w+)/i);
-    if (fromMatch) {
-      const tableName = fromMatch[1];
-      const whereMatch = queryText.match(/WHERE\s+(.+?)(?:ORDER|LIMIT|$)/i);
-
-      let queryBuilder = supabase.from(tableName).select('*');
-
-      // Parse simples de WHERE clauses
-      if (whereMatch) {
-        const whereClause = whereMatch[1].trim();
-        // Suportar condições simples como "email = 'value' AND status = 'active'"
-        const conditions = whereClause.split(/\s+AND\s+/i);
-        for (const condition of conditions) {
-          const eqMatch = condition.match(/(\w+)\s*=\s*'([^']+)'/);
-          if (eqMatch) {
-            queryBuilder = queryBuilder.eq(eqMatch[1], eqMatch[2]);
-          }
-        }
-      }
-
-      const { data, error } = await queryBuilder;
-      if (error) throw error;
-      return { rows: (data || []) as T[], rowCount: data?.length || 0 };
-    }
-  } else if (trimmedQuery.startsWith('INSERT')) {
-    const intoMatch = queryText.match(/INTO\s+(\w+)/i);
-    if (intoMatch) {
-      const tableName = intoMatch[1];
-      // Para INSERT, retornar sucesso vazio (a maioria dos inserts não precisa de retorno)
-      return { rows: [] as T[], rowCount: 1 };
-    }
-  } else if (trimmedQuery.startsWith('UPDATE')) {
-    return { rows: [] as T[], rowCount: 1 };
-  } else if (trimmedQuery.startsWith('CREATE')) {
-    // CREATE TABLE - ignorar silenciosamente (tabelas já devem existir no Supabase)
-    return { rows: [] as T[], rowCount: 0 };
-  }
-
-  return { rows: [] as T[], rowCount: 0 };
-}
-
-// Função sql template literal (compatível com @vercel/postgres)
+// Funcao sql template literal (compativel com @vercel/postgres)
 export async function sql<T = unknown>(
   strings: TemplateStringsArray,
   ...values: unknown[]
@@ -206,18 +127,118 @@ export async function sql<T = unknown>(
   return query<T>(queryText, params);
 }
 
-// Inicializar banco de dados (criar tabelas se não existirem)
+// Obter uma conexao do pool para transacoes
+export async function getClient(): Promise<PoolClient> {
+  if (isOfflineMode) {
+    throw new Error('Database offline - cannot get client');
+  }
+  return getPool().connect();
+}
+
+// Inicializar banco de dados (criar tabelas se nao existirem)
 export async function initializeDatabase() {
   if (isOfflineMode) {
     console.log('Running in offline mode - skipping database initialization');
     return;
   }
 
-  // Com Supabase, as tabelas devem ser criadas via Dashboard ou migrations
-  // Esta função é mantida para compatibilidade
-  console.log('Database initialization: Tables should be created via Supabase Dashboard');
+  const client = await getClient();
+
+  try {
+    // Criar tabelas
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        is_admin BOOLEAN DEFAULT FALSE,
+        status VARCHAR(50) DEFAULT 'active',
+        last_login TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS watch_history (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        tmdb_id INTEGER NOT NULL,
+        imdb_id VARCHAR(50),
+        title VARCHAR(500) NOT NULL,
+        poster_path VARCHAR(500),
+        media_type VARCHAR(50) NOT NULL,
+        season INTEGER,
+        episode INTEGER,
+        progress DECIMAL(5,4) DEFAULT 0,
+        watched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, tmdb_id, season, episode)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS favorites (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        tmdb_id INTEGER NOT NULL,
+        title VARCHAR(500) NOT NULL,
+        poster_path VARCHAR(500),
+        media_type VARCHAR(50) NOT NULL,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, tmdb_id)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key VARCHAR(255) PRIMARY KEY,
+        value TEXT,
+        description TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_by INTEGER REFERENCES users(id)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admin_logs (
+        id SERIAL PRIMARY KEY,
+        admin_id INTEGER REFERENCES users(id),
+        action VARCHAR(255) NOT NULL,
+        target_type VARCHAR(100),
+        target_id VARCHAR(100),
+        details JSONB,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Criar indices se nao existirem
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_watch_history_user_id ON watch_history(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_watch_history_tmdb_id ON watch_history(tmdb_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_watch_history_watched_at ON watch_history(watched_at)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_favorites_tmdb_id ON favorites(tmdb_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs(admin_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_logs_action ON admin_logs(action)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at)`);
+
+    console.log('Database tables initialized successfully');
+  } finally {
+    client.release();
+  }
 }
 
-// Exportar cliente Supabase para uso direto se necessário
-export { getSupabaseAdmin, isOfflineMode, inMemoryData };
+// Fechar pool de conexoes (para cleanup)
+export async function closePool() {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
+}
+
+// Exportar para uso externo
+export { isOfflineMode, inMemoryData, getPool };
 export type { User, WatchHistoryItem, Favorite, QueryResult };

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWithCloudflare, fetchWithResolvedDNS } from '@/lib/dns-resolver';
 
-// Domínios de embed permitidos
+// Dominios de embed permitidos
 const ALLOWED_EMBED_DOMAINS = [
+  'superflixapi.cv',
   'superflixapi.run',
   'superflixapi.buzz',
   'superflixapi.top',
@@ -10,14 +11,17 @@ const ALLOWED_EMBED_DOMAINS = [
   'www1.embedtv.best',
 ];
 
-// Domínios que devem ser proxied (bloqueados pelo DNS local)
+// Dominios que devem ser proxied (bloqueados pelo DNS local)
 const PROXY_DOMAINS = [
+  'superflixapi.cv',
   'superflixapi.run',
   'superflixapi.buzz',
   'superflixapi.top',
   'embedtv.best',
   'www1.embedtv.best',
-  // Domínios de stream HLS comuns
+  // Dominios de stream HLS comuns
+  'cdn.superflixapi.cv',
+  'stream.superflixapi.cv',
   'cdn.superflixapi.run',
   'stream.superflixapi.run',
 ];
