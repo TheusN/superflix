@@ -1,23 +1,30 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { fetchEmbedTVChannels, getEmbedPlayerUrl, clearEmbedTVCache } from '@/services/embedtv';
 import { cn } from '@/lib/utils';
-import { Search, Heart, Calendar, ChevronLeft, ChevronRight, RefreshCw, X, ArrowLeft, Tv } from 'lucide-react';
+import { Search, Heart, Calendar, ChevronLeft, ChevronRight, RefreshCw, X, ArrowLeft, Tv, Maximize, Minimize, History } from 'lucide-react';
+import {
+  initTVService,
+  isFavorite,
+  getFavoriteIds,
+  toggleFavorite as toggleFavoriteService,
+  addToHistory,
+  getHistory,
+  getFavorites,
+  loadLocalFavorites,
+  loadLocalHistory,
+} from '@/services/tvProgress';
+import { useAuth } from '@/context/AuthContext';
 import type { Channel } from '@/types/tv';
 
-type TabType = 'channels' | 'favorites' | 'schedule';
+type TabType = 'channels' | 'favorites' | 'recent' | 'schedule';
 
 export default function TVPage() {
+  const { user } = useAuth();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
-
-  // Resetar estado do player quando mudar de canal
-  const selectChannel = (channel: Channel | null) => {
-    setIsPlayerReady(false);
-    setSelectedChannel(channel);
-  };
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,6 +33,17 @@ export default function TVPage() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [, forceUpdate] = useState({});
+
+  // Resetar estado do player quando mudar de canal
+  const selectChannel = (channel: Channel | null) => {
+    setIsPlayerReady(false);
+    if (channel) {
+      // Salvar no historico
+      addToHistory(channel);
+    }
+    setSelectedChannel(channel);
+  };
 
   // Detectar mobile
   useEffect(() => {
@@ -35,19 +53,38 @@ export default function TVPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Carregar favoritos do localStorage
+  // Inicializar servico de TV e carregar favoritos
   useEffect(() => {
-    const saved = localStorage.getItem('tv-favorites');
-    if (saved) setFavorites(JSON.parse(saved));
+    initTVService();
+    loadLocalFavorites();
+    loadLocalHistory();
+    setFavorites(getFavoriteIds());
   }, []);
 
-  // Salvar favoritos
-  const toggleFavorite = (channelId: string) => {
-    const newFavorites = favorites.includes(channelId)
-      ? favorites.filter(id => id !== channelId)
-      : [...favorites, channelId];
-    setFavorites(newFavorites);
-    localStorage.setItem('tv-favorites', JSON.stringify(newFavorites));
+  // Atualizar favoritos quando usuario logar
+  useEffect(() => {
+    if (user) {
+      // Recarregar favoritos do servidor
+      const timer = setTimeout(() => {
+        setFavorites(getFavoriteIds());
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  // Alternar favorito
+  const handleToggleFavorite = async (channel: Channel) => {
+    await toggleFavoriteService(channel);
+    setFavorites(getFavoriteIds());
+    forceUpdate({}); // Forcar re-render
+  };
+
+  // Wrapper para toggle favorito por ID (usado em componentes filhos)
+  const toggleFavoriteById = (channelId: string) => {
+    const channel = channels.find(ch => ch.id === channelId);
+    if (channel) {
+      handleToggleFavorite(channel);
+    }
   };
 
   useEffect(() => {
@@ -77,7 +114,21 @@ export default function TVPage() {
 
     // Filtrar por favoritos
     if (activeTab === 'favorites') {
-      result = result.filter(ch => favorites.includes(ch.id));
+      const favIds = getFavoriteIds();
+      result = result.filter(ch => favIds.includes(ch.id));
+    }
+
+    // Filtrar por recentes
+    if (activeTab === 'recent') {
+      const history = getHistory();
+      const historyIds = history.map(h => h.channel_id);
+      result = result.filter(ch => historyIds.includes(ch.id));
+      // Ordenar por ordem do historico
+      result.sort((a, b) => {
+        const aIndex = historyIds.indexOf(a.id);
+        const bIndex = historyIds.indexOf(b.id);
+        return aIndex - bIndex;
+      });
     }
 
     // Filtrar por busca
@@ -88,7 +139,7 @@ export default function TVPage() {
     }
 
     // Filtrar por categoria
-    if (activeCategory !== 'Todos') {
+    if (activeCategory !== 'Todos' && activeTab === 'channels') {
       result = result.filter(ch => ch.category === activeCategory);
     }
 
@@ -106,70 +157,15 @@ export default function TVPage() {
     return grouped;
   }, [filteredChannels]);
 
-  // Se um canal está selecionado, mostrar o player
+  // Se um canal esta selecionado, mostrar o player
   if (selectedChannel) {
     return (
-      <div className="min-h-screen bg-black">
-        {/* Header do Player */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent p-4">
-          <button
-            onClick={() => selectChannel(null)}
-            className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors"
-          >
-            <ArrowLeft size={24} />
-            <span className="font-medium">Voltar</span>
-          </button>
-        </div>
-
-        {/* Player */}
-        <div className="w-full h-screen relative">
-          {/* Loading overlay */}
-          {!isPlayerReady && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black">
-              <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-white text-lg">Carregando {selectedChannel.name}...</p>
-              <p className="text-gray-500 text-sm mt-2">Aguarde ou clique no player para iniciar</p>
-            </div>
-          )}
-          <iframe
-            src={getEmbedPlayerUrl(selectedChannel.id)}
-            className="w-full h-full border-0"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            referrerPolicy="no-referrer-when-downgrade"
-            style={{ border: 'none', background: 'black' }}
-            onLoad={() => {
-              // Dar um tempo para o player interno carregar
-              setTimeout(() => setIsPlayerReady(true), 2000);
-            }}
-          />
-        </div>
-
-        {/* Info do Canal */}
-        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
-          <div className="flex items-center gap-3">
-            {selectedChannel.logo && (
-              <img
-                src={selectedChannel.logo}
-                alt={selectedChannel.name}
-                className="w-12 h-12 rounded-lg object-contain bg-white/10"
-              />
-            )}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded">
-                  AO VIVO
-                </span>
-              </div>
-              <h2 className="text-white text-lg font-semibold mt-1">
-                {selectedChannel.name}
-              </h2>
-              {selectedChannel.category && (
-                <p className="text-gray-400 text-sm">{selectedChannel.category}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <TVPlayer
+        channel={selectedChannel}
+        isPlayerReady={isPlayerReady}
+        onClose={() => selectChannel(null)}
+        onPlayerReady={() => setIsPlayerReady(true)}
+      />
     );
   }
 
@@ -227,6 +223,20 @@ export default function TVPage() {
               <div className="flex items-center justify-center gap-2">
                 <Heart size={16} />
                 Favoritos
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('recent')}
+              className={cn(
+                'flex-1 py-3 text-sm font-medium transition-colors',
+                activeTab === 'recent'
+                  ? 'text-white border-b-2 border-green-500'
+                  : 'text-gray-500'
+              )}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <History size={16} />
+                Recentes
               </div>
             </button>
             <button
@@ -353,7 +363,7 @@ export default function TVPage() {
                 channel={channel}
                 isFavorite={favorites.includes(channel.id)}
                 onSelect={() => selectChannel(channel)}
-                onToggleFavorite={() => toggleFavorite(channel.id)}
+                onToggleFavorite={() => toggleFavoriteById(channel.id)}
               />
             ))}
           </div>
@@ -373,7 +383,7 @@ export default function TVPage() {
                       channel={channel}
                       isFavorite={favorites.includes(channel.id)}
                       onSelect={() => selectChannel(channel)}
-                      onToggleFavorite={() => toggleFavorite(channel.id)}
+                      onToggleFavorite={() => toggleFavoriteById(channel.id)}
                     />
                   ))}
                 </div>
@@ -387,7 +397,7 @@ export default function TVPage() {
                   channels={categoryChannels}
                   favorites={favorites}
                   onSelectChannel={selectChannel}
-                  onToggleFavorite={toggleFavorite}
+                  onToggleFavorite={toggleFavoriteById}
                 />
               ))
             )}
@@ -508,7 +518,7 @@ function CategoryRow({
     <div>
       <h2 className="text-xl font-semibold text-white mb-4">{title}</h2>
       <div className="relative group/row">
-        {/* Botão Scroll Esquerda */}
+        {/* Botao Scroll Esquerda */}
         <button
           onClick={() => scroll('left')}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-black/80 rounded-full opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-black"
@@ -533,7 +543,7 @@ function CategoryRow({
           ))}
         </div>
 
-        {/* Botão Scroll Direita */}
+        {/* Botao Scroll Direita */}
         <button
           onClick={() => scroll('right')}
           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-black/80 rounded-full opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-black"
@@ -541,6 +551,191 @@ function CategoryRow({
           <ChevronRight size={24} className="text-white" />
         </button>
       </div>
+    </div>
+  );
+}
+
+// Componente do Player de TV
+function TVPlayer({
+  channel,
+  isPlayerReady,
+  onClose,
+  onPlayerReady,
+}: {
+  channel: Channel;
+  isPlayerReady: boolean;
+  onClose: () => void;
+  onPlayerReady: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Esconder controles apos 3 segundos de inatividade
+  const resetHideTimer = useCallback(() => {
+    setShowControls(true);
+    if (hideControlsTimeout.current) {
+      clearTimeout(hideControlsTimeout.current);
+    }
+    hideControlsTimeout.current = setTimeout(() => {
+      if (isPlayerReady) {
+        setShowControls(false);
+      }
+    }, 3000);
+  }, [isPlayerReady]);
+
+  // Detectar movimento do mouse
+  useEffect(() => {
+    const handleMouseMove = () => resetHideTimer();
+    const handleTouchStart = () => resetHideTimer();
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('touchstart', handleTouchStart);
+
+    // Iniciar timer
+    resetHideTimer();
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('touchstart', handleTouchStart);
+      if (hideControlsTimeout.current) {
+        clearTimeout(hideControlsTimeout.current);
+      }
+    };
+  }, [resetHideTimer]);
+
+  // Detectar mudanca de fullscreen
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Toggle fullscreen
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Erro ao alternar tela cheia:', err);
+    }
+  };
+
+  // Teclas de atalho
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.fullscreenElement) {
+        onClose();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-[9999] bg-black"
+      onClick={resetHideTimer}
+    >
+      {/* Player iframe - ocupa tudo */}
+      <iframe
+        src={getEmbedPlayerUrl(channel.id)}
+        className="absolute inset-0 w-full h-full border-0"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+        referrerPolicy="no-referrer-when-downgrade"
+        style={{ border: 'none', background: 'black' }}
+        onLoad={() => {
+          setTimeout(() => onPlayerReady(), 1500);
+        }}
+      />
+
+      {/* Loading overlay */}
+      {!isPlayerReady && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black">
+          <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-white text-lg font-medium">{channel.name}</p>
+          <p className="text-gray-500 text-sm mt-2">Carregando transmissao...</p>
+        </div>
+      )}
+
+      {/* Controles - aparecem/somem */}
+      <div
+        className={cn(
+          'absolute inset-0 z-30 pointer-events-none transition-opacity duration-300',
+          showControls ? 'opacity-100' : 'opacity-0'
+        )}
+      >
+        {/* Header com botao voltar */}
+        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent p-4 pointer-events-auto">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 text-white hover:text-green-400 transition-colors"
+            >
+              <ArrowLeft size={24} />
+              <span className="font-medium hidden sm:inline">Voltar</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white text-sm font-bold rounded">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                AO VIVO
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer com info do canal e botao fullscreen */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pointer-events-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {channel.logo && (
+                <img
+                  src={channel.logo}
+                  alt={channel.name}
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-contain bg-white/10 p-1"
+                />
+              )}
+              <div>
+                <h2 className="text-white text-base sm:text-lg font-semibold">
+                  {channel.name}
+                </h2>
+                {channel.category && (
+                  <p className="text-gray-400 text-xs sm:text-sm">{channel.category}</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={toggleFullscreen}
+              className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title={isFullscreen ? 'Sair da tela cheia (F)' : 'Tela cheia (F)'}
+            >
+              {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Hint de controles - aparece ao mover o mouse quando controles estao escondidos */}
+      {!showControls && isPlayerReady && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 opacity-0 hover:opacity-100 transition-opacity">
+          <p className="text-white/50 text-xs">Mova o mouse para mostrar controles</p>
+        </div>
+      )}
     </div>
   );
 }

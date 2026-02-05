@@ -1,5 +1,5 @@
 /**
- * Script para configurar o banco de dados PostgreSQL/Supabase
+ * Script para configurar o banco de dados PostgreSQL
  *
  * Uso: node database/setup.js
  */
@@ -7,24 +7,22 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-// Carregar variáveis de ambiente
+// Carregar variaveis de ambiente
 require('dotenv').config({ path: '.env.local' });
 
-const POSTGRES_URL = process.env.POSTGRES_URL;
+const POSTGRES_URL = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
 if (!POSTGRES_URL) {
-  console.error('❌ POSTGRES_URL não configurada no .env.local');
+  console.error('POSTGRES_URL nao configurada no .env.local');
   process.exit(1);
 }
 
-// Desabilitar verificação de certificado para ambientes de desenvolvimento
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+// Configurar SSL baseado na URL
+const useSSL = !POSTGRES_URL.includes('sslmode=disable');
 
 const pool = new Pool({
   connectionString: POSTGRES_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: useSSL ? { rejectUnauthorized: false } : false,
 });
 
 async function setup() {
@@ -115,7 +113,39 @@ async function setup() {
     `);
     console.log('  ✅ Tabela admin_logs criada');
 
-    // 6. Inserir configurações do sistema
+    // 6. Criar tabela tv_favorites
+    console.log('📦 Criando tabela tv_favorites...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tv_favorites (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        channel_id VARCHAR(100) NOT NULL,
+        channel_name VARCHAR(255) NOT NULL,
+        channel_logo VARCHAR(500),
+        channel_category VARCHAR(100),
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, channel_id)
+      )
+    `);
+    console.log('  ✅ Tabela tv_favorites criada');
+
+    // 7. Criar tabela tv_history
+    console.log('📦 Criando tabela tv_history...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tv_history (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        channel_id VARCHAR(100) NOT NULL,
+        channel_name VARCHAR(255) NOT NULL,
+        channel_logo VARCHAR(500),
+        channel_category VARCHAR(100),
+        watched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, channel_id)
+      )
+    `);
+    console.log('  ✅ Tabela tv_history criada');
+
+    // 9. Inserir configurações do sistema
     console.log('\n⚙️ Inserindo configurações do sistema...');
     await client.query(`
       INSERT INTO system_settings (key, value, description) VALUES
@@ -128,12 +158,12 @@ async function setup() {
     `);
     console.log('  ✅ Configurações inseridas');
 
-    // 7. Criar usuário admin master padrão
-    console.log('\n👤 Criando usuário administrador master...');
+    // 10. Criar usuario admin master padrao
+    console.log('\nCriando usuario administrador master...');
 
-    const adminMasterEmail = 'admin@admin.com';
-    const adminMasterPassword = '123456';
-    const adminMasterName = 'Admin Master';
+    const adminMasterEmail = 'matheusnattan8@gmail.com';
+    const adminMasterPassword = 'Adm1478@';
+    const adminMasterName = 'Matheus Nattan';
 
     const existingAdminMaster = await client.query(
       'SELECT id FROM users WHERE email = $1',

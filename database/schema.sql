@@ -153,5 +153,43 @@ CREATE TRIGGER update_system_settings_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- =============================================
+-- TABELA: tv_favorites
+-- Canais de TV favoritos dos usuarios
+-- =============================================
+CREATE TABLE IF NOT EXISTS tv_favorites (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    channel_id VARCHAR(100) NOT NULL,
+    channel_name VARCHAR(255) NOT NULL,
+    channel_logo VARCHAR(500),
+    channel_category VARCHAR(100),
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, channel_id)
+);
+
+-- Indices para tv_favorites
+CREATE INDEX IF NOT EXISTS idx_tv_favorites_user ON tv_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_tv_favorites_channel ON tv_favorites(channel_id);
+
+-- =============================================
+-- TABELA: tv_history
+-- Historico de canais de TV assistidos
+-- =============================================
+CREATE TABLE IF NOT EXISTS tv_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    channel_id VARCHAR(100) NOT NULL,
+    channel_name VARCHAR(255) NOT NULL,
+    channel_logo VARCHAR(500),
+    channel_category VARCHAR(100),
+    watched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, channel_id)
+);
+
+-- Indices para tv_history
+CREATE INDEX IF NOT EXISTS idx_tv_history_user ON tv_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_tv_history_watched ON tv_history(watched_at DESC);
+
+-- =============================================
 -- FIM DO SCHEMA
 -- =============================================
