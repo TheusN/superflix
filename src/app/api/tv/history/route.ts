@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql, isOfflineMode } from '@/lib/db';
 import { getCurrentUser, verifyToken } from '@/lib/auth';
 
+// Evitar cache de dados pessoais
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface TVHistory {
   id: number;
   user_id: number;

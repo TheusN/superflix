@@ -213,6 +213,33 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Tabelas de TV
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tv_favorites (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        channel_id VARCHAR(255) NOT NULL,
+        channel_name VARCHAR(255) NOT NULL,
+        channel_logo TEXT,
+        channel_category VARCHAR(100),
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, channel_id)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tv_history (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        channel_id VARCHAR(255) NOT NULL,
+        channel_name VARCHAR(255) NOT NULL,
+        channel_logo TEXT,
+        channel_category VARCHAR(100),
+        watched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, channel_id)
+      )
+    `);
+
     // Criar indices se nao existirem
     await client.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`);
@@ -224,6 +251,13 @@ export async function initializeDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs(admin_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_logs_action ON admin_logs(action)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at)`);
+
+    // Indices para TV
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tv_favorites_user_id ON tv_favorites(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tv_favorites_channel_id ON tv_favorites(channel_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tv_history_user_id ON tv_history(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tv_history_channel_id ON tv_history(channel_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tv_history_watched_at ON tv_history(watched_at)`);
 
     console.log('Database tables initialized successfully');
   } finally {

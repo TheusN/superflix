@@ -351,13 +351,12 @@ export function initTVService() {
   window.addEventListener('beforeunload', () => {
     const token = localStorage.getItem(STORAGE_KEYS.token);
     if (token) {
-      // Usar sendBeacon para historico
+      // Usar sendBeacon para historico - precisa de Blob para enviar JSON
       const historyItems = Array.from(historyCache.values()).slice(0, 5);
       if (historyItems.length > 0) {
-        navigator.sendBeacon(
-          '/api/tv/history',
-          JSON.stringify({ ...historyItems[0], token })
-        );
+        const data = JSON.stringify({ ...historyItems[0], token });
+        const blob = new Blob([data], { type: 'application/json' });
+        navigator.sendBeacon('/api/tv/history', blob);
       }
     }
   });
